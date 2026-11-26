@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pomodoro: { focusMin: 25, breakMin: 5, longBreakMin: 15, cyclesBeforeLong: 4 },
   keepAwake: true,
   sound: true,
+  haptics: true,
   sharePresence: false,
   shareSubject: false,
   installHintDismissed: false,

@@ -129,3 +129,13 @@ describe('goal suggestion', () => {
     expect(sg.suggestedMs).toBe(6 * HOUR);
   });
 });
+
+describe('streak milestones', () => {
+  it('points at the next milestone', async () => {
+    const { nextMilestone } = await import('./stats');
+    expect(nextMilestone(0)).toEqual({ target: 3, remaining: 3 });
+    expect(nextMilestone(3)).toEqual({ target: 7, remaining: 4 });
+    expect(nextMilestone(29)).toEqual({ target: 30, remaining: 1 });
+    expect(nextMilestone(365)).toBeNull();
+  });
+});

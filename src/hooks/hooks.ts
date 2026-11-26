@@ -143,6 +143,21 @@ export function useInstall(): InstallInfo {
   };
 }
 
+// ---------- haptics (Android browsers; iOS Safari has no vibration API) ----------
+
+export const hapticsSupported = typeof navigator !== 'undefined' && 'vibrate' in navigator;
+
+const PATTERNS = { tap: 10, press: 18, success: [14, 50, 22] } as const;
+
+export function haptic(kind: keyof typeof PATTERNS, enabled = true) {
+  if (!enabled || !hapticsSupported) return;
+  try {
+    navigator.vibrate(PATTERNS[kind] as number | number[]);
+  } catch {
+    /* optional */
+  }
+}
+
 // ---------- audio chime (only plays while the app is open) ----------
 
 let audioCtx: AudioContext | null = null;

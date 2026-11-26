@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { isDemoMode, startSession, updateSettings, useStore } from '../store/store';
-import { useInstall, useNow, primeAudio, showToast } from '../hooks/hooks';
-import { currentStreak, sessionDay, STREAK_MIN_MS, subjectTotals, sessionsInRange, sum, todayMs, totalsByDay, weekMs } from '../lib/stats';
+import { dismissSummary, isDemoMode, startSession, updateSettings, useStore } from '../store/store';
+import { haptic, useInstall, useNow, primeAudio, showToast } from '../hooks/hooks';
+import { SummaryCard } from '../components/SummaryCard';
+import { currentStreak, nextMilestone, sessionDay, STREAK_MIN_MS, subjectTotals, sessionsInRange, sum, todayMs, totalsByDay, weekMs } from '../lib/stats';
 import { MIN, addDays, daysBetween, dayKey, formatDayLabel, formatDuration, greeting, relativeDays, weekStartKey, parseDayKey, formatShortDate } from '../lib/time';
 import type { StudySession, Subject } from '../types';
 import { friendPresence } from '../data/friendsSim';
@@ -10,7 +11,7 @@ import { Bar, DemoBadge, FriendAvatar, ProgressRing, StateBadge, SubjectDot, sub
 import { Icon } from '../components/Icon';
 
 export default function Home() {
-  const { data } = useStore();
+  const { data, summary } = useStore();
   const navigate = useNavigate();
   const now = useNow(true, 30_000);
   const install = useInstall();
@@ -23,6 +24,7 @@ export default function Home() {
   const weeklyGoal = settings.weeklyGoalMin * MIN;
   const streak = useMemo(() => currentStreak(sessions, now), [sessions, now]);
   const totals = useMemo(() => totalsByDay(sessions), [sessions]);
+  const milestone = streak.days > 0 ? nextMilestone(streak.days) : null;
 
   const weekStart = weekStartKey(today);
   const weekSubjects = useMemo(() => subjectTotals(sessionsInRange(sessions, weekStart, today)), [sessions, weekStart, today]);
@@ -42,6 +44,7 @@ export default function Home() {
   function quickStart() {
     if (!lastSubject) return navigate('/study');
     primeAudio();
+    haptic('press', settings.haptics);
     const r = startSession({ subjectId: lastSubject.id, topic: '', goal: '', config: { mode: 'stopwatch' }, friendIds: [] });
     if (r.ok) navigate('/session');
     else showToast(r.error, 'error');
@@ -58,6 +61,8 @@ export default function Home() {
           {name ? `, ${name}` : ''}.
         </h1>
       </header>
+
+      {summary && <SummaryCard summary={summary} subject={subjects.find((s) => s.id === summary.subjectId)} onDismiss={dismissSummary} />}
 
       <section className="card hero" aria-labelledby="hero-h">
         <div className="hero-copy">
@@ -166,7 +171,10 @@ export default function Home() {
               );
             })}
           </ol>
-          <p className="hint">A day counts after {formatDuration(STREAK_MIN_MS)} of study.</p>
+          <p className="hint">
+            {milestone ? `${milestone.remaining} more ${milestone.remaining === 1 ? 'day' : 'days'} to a ${milestone.target}-day milestone. ` : ''}
+            A day counts after {formatDuration(STREAK_MIN_MS)} of study.
+          </p>
         </section>
 
         <section className="card" aria-labelledby="subj-week-h">

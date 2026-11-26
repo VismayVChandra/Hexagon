@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { Friend, FriendState, Subject } from '../types';
 import { SUBJECT_COLORS } from '../data/seed';
 import { STATE_LABEL } from '../data/friendsSim';
@@ -95,9 +95,15 @@ export function Toggle({ id, checked, onChange, label, description, disabled }: 
 export function ProgressRing({ value, size = 132, stroke = 10, children, label }: { value: number; size?: number; stroke?: number; children?: ReactNode; label: string }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const v = Math.max(0, Math.min(1, value));
+  // Start empty and fill on the next frame so the ring animates in (and eases between values).
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(value));
+    return () => cancelAnimationFrame(id);
+  }, [value]);
+  const v = Math.max(0, Math.min(1, shown));
   return (
-    <div className="ring" style={{ width: size, height: size }} role="img" aria-label={label}>
+    <div className={`ring${value >= 1 ? ' is-complete' : ''}`} style={{ width: size, height: size }} role="img" aria-label={label}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
         <circle

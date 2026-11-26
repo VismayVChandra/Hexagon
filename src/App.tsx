@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { HashRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { heartbeat, initStore, isDemoMode, removeDemoData, resolveAway, startFresh, useStore, watchOtherTabs } from './store/store';
+import { dismissSummary, heartbeat, initStore, isDemoMode, removeDemoData, resolveAway, startFresh, useStore, watchOtherTabs } from './store/store';
 import { showToast, useNow, useToasts } from './hooks/hooks';
 import { computeView } from './lib/timer';
 import { formatClock, formatTimeOfDay } from './lib/time';
@@ -93,6 +93,11 @@ function Shell() {
       document.removeEventListener('visibilitychange', onVis);
     };
   }, [running]);
+
+  // The celebration card is shown once: drop it when the student moves on from Home.
+  useEffect(() => {
+    if (loc.pathname !== '/') dismissSummary();
+  }, [loc.pathname]);
 
   // Move focus to the page heading on route change, for keyboard and screen-reader users.
   const mainRef = useRef<HTMLElement>(null);

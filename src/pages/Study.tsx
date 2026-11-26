@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { addSubject, startSession, useStore, validateSubjectName } from '../store/store';
 import { PRESET_COUNTDOWNS } from '../data/seed';
 import { ROOMS, friendPresence, roomOf } from '../data/friendsSim';
-import { primeAudio, useNow } from '../hooks/hooks';
+import { haptic, primeAudio, useNow } from '../hooks/hooks';
 import { formatDuration, MIN } from '../lib/time';
 import type { PomodoroConfig, TimerMode } from '../types';
 import { DemoBadge, Field, FriendAvatar, StateBadge, SubjectDot } from '../components/bits';
@@ -103,6 +103,7 @@ export default function Study() {
     }
 
     primeAudio(); // allows the end-of-block chime to play later
+    haptic('press', data.settings.haptics);
     const r = startSession({
       subjectId,
       topic,

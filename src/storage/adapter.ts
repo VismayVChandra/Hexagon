@@ -48,6 +48,7 @@ function sanitizeSettings(v: unknown): Settings {
     },
     keepAwake: typeof s.keepAwake === 'boolean' ? s.keepAwake : d.keepAwake,
     sound: typeof s.sound === 'boolean' ? s.sound : d.sound,
+    haptics: typeof s.haptics === 'boolean' ? s.haptics : d.haptics,
     sharePresence: typeof s.sharePresence === 'boolean' ? s.sharePresence : false,
     shareSubject: typeof s.shareSubject === 'boolean' ? s.shareSubject : false,
     lastSubjectId: isStr(s.lastSubjectId) ? s.lastSubjectId : undefined,

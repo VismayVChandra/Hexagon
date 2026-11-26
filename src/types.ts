@@ -90,6 +90,8 @@ export interface Settings {
   pomodoro: PomodoroConfig;
   keepAwake: boolean;
   sound: boolean;
+  /** Short vibrations on key actions, where the browser supports them. */
+  haptics: boolean;
   /** Privacy: appear to friends as "studying" while in a session. Off by default. */
   sharePresence: boolean;
   /** Privacy: also show the subject. Off by default. */
@@ -109,3 +111,21 @@ export interface AppData {
 }
 
 export type FriendState = 'studying' | 'online' | 'finished' | 'offline';
+
+/** What the celebration card shows right after a session is saved. */
+export interface SessionSummary {
+  sessionId: string;
+  subjectId: string;
+  studiedMs: number;
+  todayMs: number;
+  dailyGoalMs: number;
+  /** This session is what took today past the daily goal. */
+  goalReached: boolean;
+  streakDays: number;
+  /** Today counted toward the streak for the first time. */
+  streakExtended: boolean;
+  /** The current streak is the longest the student has had. */
+  newBestStreak: boolean;
+  weekMs: number;
+  weeklyGoalMs: number;
+}

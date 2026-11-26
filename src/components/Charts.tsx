@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Subject } from '../types';
 import type { Bucket } from '../lib/stats';
 import { HOUR, MIN, formatDuration, formatShortDate, parseDayKey, spokenDuration } from '../lib/time';
@@ -24,6 +24,11 @@ interface StackedProps {
 /** Stacked bars by subject. Built from buttons so each bar is focusable and tappable on touch. */
 export function StackedChart({ buckets, subjects, goalMs, weekly }: StackedProps) {
   const [sel, setSel] = useState<number | null>(null);
+  const [grown, setGrown] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setGrown(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   const max = niceMax(Math.max(goalMs ?? 0, ...buckets.map((b) => b.totalMs)));
   const labelStep = buckets.length > 20 ? Math.ceil(buckets.length / 6) : buckets.length > 10 ? 2 : 1;
   const subj = (id: string) => subjects.find((s) => s.id === id);
@@ -60,7 +65,7 @@ export function StackedChart({ buckets, subjects, goalMs, weekly }: StackedProps
                 aria-label={`${weekly ? 'Week of ' : ''}${formatShortDate(b.key)}: ${b.totalMs ? spokenDuration(b.totalMs) : 'no study'}`}
                 onClick={() => setSel(sel === i ? null : i)}
               >
-                <span className="chart-stack" style={{ height: `${(b.totalMs / max) * 100}%` }}>
+                <span className="chart-stack" style={{ height: grown ? `${(b.totalMs / max) * 100}%` : 0, transitionDelay: `${Math.min(i * 15, 240)}ms` }}>
                   {b.bySubject.map((p) => (
                     <span key={p.subjectId} className="chart-seg" style={{ flexGrow: p.ms, background: subjectColor(subj(p.subjectId)) }} />
                   ))}

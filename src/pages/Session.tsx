@@ -1,13 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { discardSession, extendActive, finishSession, pauseActive, resumeActive, skipActiveBreak, updateSettings, useStore } from '../store/store';
-import { chime, showToast, useNow, useWakeLock, wakeLockSupported } from '../hooks/hooks';
+import { chime, haptic, showToast, useMediaQuery, useNow, useWakeLock, wakeLockSupported } from '../hooks/hooks';
 import { computeView, modeLabel } from '../lib/timer';
-import { formatClock, formatDuration, spokenDuration, MIN } from '../lib/time';
+import { dayKey, formatClock, formatDuration, spokenDuration, MIN } from '../lib/time';
+import { todayMs } from '../lib/stats';
 import { ROOMS, friendPresence } from '../data/friendsSim';
-import { DemoBadge, FriendAvatar, ProgressRing, StateBadge, SubjectDot, Toggle } from '../components/bits';
+import { Bar, DemoBadge, FriendAvatar, ProgressRing, StateBadge, SubjectDot, Toggle } from '../components/bits';
 import { Icon } from '../components/Icon';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
+
+function encouragement(studiedMs: number, todayTotal: number, goalMs: number, isBreak: boolean): string {
+  if (isBreak) return 'Rest well. You’ve earned it.';
+  if (todayTotal >= goalMs) return 'Daily goal reached. Everything from here is a bonus.';
+  const m = studiedMs / MIN;
+  if (m < 2) return 'Settle in. The first few minutes are the hardest.';
+  if (m < 25) return 'You’re finding your rhythm.';
+  if (m < 60) return 'Deep focus. Keep going.';
+  return 'A long, strong session. Rest your eyes when you can.';
+}
 
 export default function Session() {
   const { data } = useStore();
@@ -21,6 +32,8 @@ export default function Session() {
   // Set just before we clear the session ourselves, so the "no session -> go to Study" redirect doesn't race our own navigation.
   const leaving = useRef(false);
   const wake = useWakeLock(running && data.settings.keepAwake);
+  // Smaller ring on short screens so the controls stay in view without scrolling.
+  const compact = useMediaQuery('(max-height: 780px)');
 
   const view = active ? computeView(active, now) : null;
   const subject = active ? data.subjects.find((s) => s.id === active.subjectId) : undefined;
@@ -60,6 +73,7 @@ export default function Session() {
   const mode = active.config.mode;
 
   function openFinish() {
+    haptic('tap', data.settings.haptics);
     pauseActive();
     setFinishing(true);
   }
@@ -70,7 +84,7 @@ export default function Session() {
     if (r.ok) {
       setFinishing(false);
       setNotes('');
-      showToast(r.value.studiedMs >= MIN ? `Saved — ${formatDuration(r.value.studiedMs)} of ${subject?.name ?? 'study'}.` : 'Session saved.');
+      haptic('success', data.settings.haptics);
       navigate('/', { replace: true });
     } else {
       leaving.current = false;
@@ -87,6 +101,16 @@ export default function Session() {
   }
 
   const shortSession = view.studiedMs < MIN;
+
+  function toggleRun() {
+    haptic('tap', data.settings.haptics);
+    if (view!.running) pauseActive();
+    else resumeActive();
+  }
+
+  const goalMs = data.settings.dailyGoalMin * MIN;
+  const todayTotal = todayMs(data.sessions, now) + (dayKey(active.startedAt) === dayKey(now) ? view.studiedMs : 0);
+  const note = encouragement(view.studiedMs, todayTotal, goalMs, isBreak);
 
   return (
     <div className="page session">
@@ -114,8 +138,8 @@ export default function Session() {
       </div>
 
       <div className={`timer-stage${isBreak ? ' is-break' : ''}${!view.running && !view.done ? ' is-paused' : ''}`}>
-        <div className="ring-timer">
-          <ProgressRing value={ringProgress} size={280} stroke={12} label={`${stateLabel}. ${formatClock(view.displayMs)} ${mode === 'stopwatch' ? 'elapsed' : 'remaining'}`}>
+        <div className={`ring-timer${mode === 'stopwatch' ? ' ring-wrap' : ''}`}>
+          <ProgressRing value={ringProgress} size={compact ? 224 : 280} stroke={12} label={`${stateLabel}. ${formatClock(view.displayMs)} ${mode === 'stopwatch' ? 'elapsed' : 'remaining'}`}>
             <div role="timer" aria-label="Session timer" className="timer-readout">
               <span className="timer-digits">{formatClock(view.displayMs)}</span>
               <span className="timer-state">
@@ -152,6 +176,17 @@ export default function Session() {
           )}
         </dl>
 
+        <div className="today-progress">
+          <div className="subject-bars-top small">
+            <span className="muted">Today including this session</span>
+            <span className="muted">
+              {formatDuration(todayTotal)} / {formatDuration(goalMs)}
+            </span>
+          </div>
+          <Bar value={todayTotal / goalMs} color={todayTotal >= goalMs ? 'var(--honey)' : 'var(--primary)'} label="Today's goal progress" />
+          <p className="encourage">{note}</p>
+        </div>
+
         <div className="controls">
           {view.done ? (
             <>
@@ -163,7 +198,7 @@ export default function Session() {
               </button>
             </>
           ) : (
-            <button type="button" className="btn btn-primary btn-lg ctl-main" onClick={() => (view.running ? pauseActive() : resumeActive())}>
+            <button type="button" className="btn btn-primary btn-lg ctl-main" onClick={toggleRun}>
               <Icon name={view.running ? 'pause' : 'play'} size={20} />
               {view.running ? 'Pause' : 'Resume'}
             </button>

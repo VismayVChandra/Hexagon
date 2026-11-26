@@ -1,11 +1,13 @@
 import { useSyncExternalStore } from 'react';
-import type { ActiveSession, AppData, Exam, Friend, Settings, StudySession, Subject, TimerConfig } from '../types';
+import type { ActiveSession, AppData, Exam, Friend, SessionSummary, Settings, StudySession, Subject, TimerConfig } from '../types';
 import { LocalStorageAdapter, MemoryAdapter, STORAGE_KEY, StorageError, parseAppData, type StudyStorage } from '../storage/adapter';
 import { createSeed, emptyData, SUBJECT_COLORS } from '../data/seed';
 import { makeSimFriend } from '../data/friendsSim';
 import { uid } from '../lib/id';
 import { AWAY_THRESHOLD_MS, computeView, extendCountdown, pause, resume, skipBreak, stopAtLastSeen } from '../lib/timer';
 import { isValidDayKey } from '../lib/time';
+import { currentStreak, longestStreak, todayMs, weekMs } from '../lib/stats';
+import { MIN } from '../lib/time';
 import { showToast } from '../hooks/hooks';
 
 export interface StoreState {
@@ -18,6 +20,8 @@ export interface StoreState {
   storageKind: 'local' | 'memory';
   /** Set when the app reopened with a session still running after a long gap. */
   away: { lastSeenAt: number } | null;
+  /** Shown once on Home right after a session is saved. */
+  summary: SessionSummary | null;
 }
 
 let storage: StudyStorage = new LocalStorageAdapter();
@@ -28,6 +32,7 @@ let state: StoreState = {
   persistFailed: false,
   storageKind: 'local',
   away: null,
+  summary: null,
 };
 const listeners = new Set<() => void>();
 
@@ -265,8 +270,32 @@ export function finishSession(notes: string, now = Date.now()): Result<StudySess
     friendIds: a.friendIds,
     roomId: a.roomId,
   };
-  mutate((d) => ({ ...d, sessions: [...d.sessions, session], active: null }));
+  const before = state.data.sessions;
+  const after = [...before, session];
+  const dailyGoalMs = state.data.settings.dailyGoalMin * MIN;
+  const prevStreak = currentStreak(before, now);
+  const streak = currentStreak(after, now);
+  const today = todayMs(after, now);
+  const summary: SessionSummary = {
+    sessionId: session.id,
+    subjectId: session.subjectId,
+    studiedMs: session.studiedMs,
+    todayMs: today,
+    dailyGoalMs,
+    goalReached: todayMs(before, now) < dailyGoalMs && today >= dailyGoalMs,
+    streakDays: streak.days,
+    streakExtended: !prevStreak.todayDone && streak.todayDone,
+    newBestStreak: streak.days >= 2 && streak.days > longestStreak(before),
+    weekMs: weekMs(after, now),
+    weeklyGoalMs: state.data.settings.weeklyGoalMin * MIN,
+  };
+  mutate((d) => ({ ...d, sessions: after, active: null }));
+  set({ summary });
   return { ok: true, value: session };
+}
+
+export function dismissSummary() {
+  if (state.summary) set({ summary: null });
 }
 
 export function discardSession() {
@@ -405,7 +434,7 @@ export async function resetEverything() {
   await storage.reset();
   const data = emptyData();
   await storage.save(data).catch(() => undefined);
-  set({ data, away: null, persistFailed: false });
+  set({ data, away: null, persistFailed: false, summary: null });
 }
 
 export function exportJson(): string {

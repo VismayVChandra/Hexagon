@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { exportJson, getState, hasDemoData, removeDemoData, resetEverything, updateSettings, useStore } from '../store/store';
-import { showToast, useInstall, wakeLockSupported } from '../hooks/hooks';
+import { hapticsSupported, showToast, useInstall, wakeLockSupported } from '../hooks/hooks';
 import { Field, Toggle } from '../components/bits';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
@@ -132,6 +132,7 @@ export default function SettingsPage() {
           label="Keep screen on while timing"
           description={wakeLockSupported ? 'Uses your browser’s screen wake lock.' : 'Not supported by this browser. The timer stays accurate regardless.'}
         />
+        <Toggle id="s-haptics" checked={settings.haptics} onChange={(v) => updateSettings({ haptics: v })} disabled={!hapticsSupported} label="Vibration feedback" description={hapticsSupported ? 'A light buzz when you start, pause and finish.' : 'Not supported by this browser (iPhone browsers don’t allow it).'} />
         <Toggle id="s-sound" checked={settings.sound} onChange={(v) => updateSettings({ sound: v })} label="Chime when a block ends" description="Plays only while Hexagon is open on screen. It can’t alert you in the background." />
       </section>
 

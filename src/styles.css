@@ -24,6 +24,7 @@
   --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Charter, 'Source Serif 4', Georgia, serif;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
   --nav-h: 68px;
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
@@ -1001,7 +1002,15 @@ input:disabled {
   transition: stroke-dashoffset 0.5s ease;
 }
 .ring-timer .ring-arc {
+  /* Countdown and Pomodoro only move forwards, so the sweep can glide between updates. */
+  transition: stroke-dashoffset 0.3s linear;
+}
+.ring-wrap .ring-arc {
+  /* The stopwatch ring wraps every minute; animating that would spin it backwards. */
   transition: none;
+}
+.ring.is-complete {
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--honey) 55%, transparent));
 }
 .bar {
   height: 10px;
@@ -1526,7 +1535,7 @@ input:disabled {
 }
 .timer-digits {
   font-family: var(--sans);
-  font-size: clamp(3rem, 15vw, 4.1rem);
+  font-size: clamp(2.6rem, 13vw, 4.1rem);
   font-weight: 300;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -1776,5 +1785,227 @@ input:disabled {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- motion & polish ---------- */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ripple {
+  from {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  to {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Pages arrive with a soft staggered rise. `backwards` so nothing lingers after the animation. */
+.page > *:not(dialog) {
+  animation: rise 0.5s var(--ease-out) backwards;
+}
+.page > *:nth-child(2) {
+  animation-delay: 0.05s;
+}
+.page > *:nth-child(3) {
+  animation-delay: 0.1s;
+}
+.page > *:nth-child(4) {
+  animation-delay: 0.15s;
+}
+.page > *:nth-child(5) {
+  animation-delay: 0.2s;
+}
+.page > *:nth-child(6) {
+  animation-delay: 0.25s;
+}
+.page > *:nth-child(n + 7) {
+  animation-delay: 0.3s;
+}
+
+/* Tactile press feedback */
+.chip,
+.segment,
+.icon-btn,
+.pick {
+  transition: transform 0.12s var(--ease-out), background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.chip:active,
+.segment:active,
+.icon-btn:active {
+  transform: scale(0.95);
+}
+.btn {
+  transition: background 0.15s ease, transform 0.12s var(--ease-out), box-shadow 0.2s ease;
+}
+.btn-primary:hover:not([disabled]) {
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+/* Navigation */
+.nav-link svg {
+  transition: transform 0.25s var(--ease-out);
+}
+.nav-link.active svg {
+  transform: translateY(-2px) scale(1.12);
+}
+
+/* Loading splash */
+.splash svg {
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
+/* Break: a calm, slow breathing ring */
+.timer-stage.is-break .ring-timer {
+  animation: breathe 7s ease-in-out infinite;
+}
+
+/* Today progress on the session screen */
+.today-progress {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.encourage {
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--muted);
+  min-height: 1.5em;
+}
+
+/* Session-complete celebration */
+.summary-card {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--honey) 55%, var(--line));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--honey) 14%, var(--surface)) 0%, var(--surface) 55%);
+}
+.summary-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.summary-badge {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 64px;
+  background: var(--honey);
+  color: #2b2000;
+  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  animation: pop 0.6s var(--ease-out) 0.15s backwards;
+}
+.summary-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--honey);
+  clip-path: inherit;
+  animation: ripple 1.4s ease-out 0.5s 2 backwards;
+  z-index: -1;
+}
+.summary-title {
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  line-height: 1.15;
+}
+.summary-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+.wins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wins li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--honey-soft);
+  color: var(--honey-ink);
+  font-weight: 650;
+  font-size: 0.875rem;
+  animation: pop 0.5s var(--ease-out) 0.45s backwards;
+}
+.summary-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash svg,
+  .timer-stage.is-break .ring-timer {
+    animation: none;
+  }
+}
+
+/* Short phones: keep the timer controls on screen without scrolling. */
+@media (max-height: 780px) {
+  .timer-stage {
+    padding: 14px 12px 12px;
+    gap: 10px;
+  }
+  .timer-note {
+    min-height: 0;
+  }
+  .session-head {
+    gap: 0;
+  }
+  .session-subject {
+    font-size: 1.35rem;
+  }
+}
+@media (max-height: 700px) {
+  .encourage {
+    display: none;
   }
 }

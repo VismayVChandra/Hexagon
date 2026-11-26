@@ -164,3 +164,11 @@ export function recentWeeklyAverage(sessions: StudySession[], now: number, weeks
   const total = sum(sessionsInRange(sessions, start, addDays(thisWeek, -1)));
   return total / usable;
 }
+
+export const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365];
+
+/** The next streak milestone above `days`, with how many more days it takes. */
+export function nextMilestone(days: number): { target: number; remaining: number } | null {
+  const target = STREAK_MILESTONES.find((m) => m > days);
+  return target ? { target, remaining: target - days } : null;
+}
