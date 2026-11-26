@@ -6,7 +6,7 @@ import { SummaryCard } from '../components/SummaryCard';
 import { currentStreak, nextMilestone, sessionDay, STREAK_MIN_MS, subjectTotals, sessionsInRange, sum, todayMs, totalsByDay, weekMs } from '../lib/stats';
 import { MIN, addDays, daysBetween, dayKey, formatDayLabel, formatDuration, greeting, relativeDays, weekStartKey, parseDayKey, formatShortDate } from '../lib/time';
 import type { StudySession, Subject } from '../types';
-import { friendPresence } from '../data/friendsSim';
+import { useFriendRows } from '../cloud/useFriendRows';
 import { Bar, DemoBadge, FriendAvatar, ProgressRing, StateBadge, SubjectDot, subjectColor, EmptyState } from '../components/bits';
 import { Icon } from '../components/Icon';
 
@@ -15,7 +15,8 @@ export default function Home() {
   const navigate = useNavigate();
   const now = useNow(true, 30_000);
   const install = useInstall();
-  const { settings, sessions, subjects, exams, friends, active } = data;
+  const { settings, sessions, subjects, exams, active } = data;
+  const { live, rows } = useFriendRows(now);
 
   const today = dayKey(now);
   const todayStudied = todayMs(sessions, now);
@@ -34,8 +35,8 @@ export default function Home() {
     [exams, today],
   );
   const lastSubject = subjects.find((s) => s.id === settings.lastSubjectId) ?? subjects[0];
-  const studyingNow = friends.map((f) => ({ f, p: friendPresence(f, now) })).filter(({ p }) => p.state === 'studying' || p.state === 'online');
-  const nStudying = studyingNow.filter(({ p }) => p.state === 'studying').length;
+  const studyingNow = rows.filter((r) => r.state === 'studying' || r.state === 'online');
+  const nStudying = studyingNow.filter((r) => r.state === 'studying').length;
 
   const last7 = Array.from({ length: 7 }, (_, i) => addDays(today, i - 6));
   const name = settings.displayName.trim();
@@ -248,24 +249,24 @@ export default function Home() {
             <h2 id="fr-h" className="card-title">
               Friends
             </h2>
-            {friends.length > 0 && <DemoBadge>Demo</DemoBadge>}
+            {rows.length > 0 && !live && <DemoBadge>Demo</DemoBadge>}
           </div>
-          {friends.length === 0 ? (
-            <EmptyState title="Study is better together" body="Add a friend to see when they’re focusing — no chat, no rankings." action={<Link to="/friends" className="btn btn-secondary btn-sm">Go to Friends</Link>} />
+          {rows.length === 0 ? (
+            <EmptyState title="Study is better together" body={live ? 'Add a friend’s code to see when they’re focusing. No chat, no rankings.' : 'Add a friend to see when they’re focusing — no chat, no rankings.'} action={<Link to="/friends" className="btn btn-secondary btn-sm">Go to Friends</Link>} />
           ) : studyingNow.length === 0 ? (
             <p className="muted">Nobody’s around right now. A quiet moment of your own.</p>
           ) : (
             <>
-              <p className="muted small">{nStudying > 0 ? `${nStudying} studying now · simulated` : 'A few friends are online · simulated'}</p>
+              <p className="muted small">{nStudying > 0 ? `${nStudying} studying now${live ? '' : ' · simulated'}` : `Friends are around${live ? '' : ' · simulated'}`}</p>
               <ul className="friend-mini">
-                {studyingNow.slice(0, 4).map(({ f, p }) => (
-                  <li key={f.id}>
-                    <FriendAvatar friend={f} state={p.state} size={36} />
+                {studyingNow.slice(0, 4).map((r) => (
+                  <li key={r.removeId}>
+                    <FriendAvatar friend={r} state={r.state} size={36} />
                     <div>
-                      <p className="item-title">{f.name}</p>
-                      <p className="muted small">{p.state === 'studying' ? `${p.subject ?? 'Studying'} · ${formatDuration(p.sessionMs)}` : 'Online'}</p>
+                      <p className="item-title">{r.name}</p>
+                      <p className="muted small">{r.state === 'studying' ? `${r.subject ?? 'Studying'} · ${formatDuration(r.sessionMs)}` : 'Online'}</p>
                     </div>
-                    <StateBadge state={p.state} />
+                    <StateBadge state={r.state} />
                   </li>
                 ))}
               </ul>

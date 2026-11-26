@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { addSubject, startSession, useStore, validateSubjectName } from '../store/store';
 import { PRESET_COUNTDOWNS } from '../data/seed';
-import { ROOMS, friendPresence, roomOf } from '../data/friendsSim';
+import { ROOMS, friendPresence } from '../data/friendsSim';
+import { useFriendRows } from '../cloud/useFriendRows';
 import { haptic, primeAudio, useNow } from '../hooks/hooks';
 import { formatDuration, MIN } from '../lib/time';
 import type { PomodoroConfig, TimerMode } from '../types';
@@ -51,6 +52,7 @@ export default function Study() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const formRef = useRef<HTMLFormElement>(null);
 
+  const { live, rows } = useFriendRows(now);
   const presences = useMemo(() => data.friends.map((f) => ({ f, p: friendPresence(f, now) })), [data.friends, now]);
 
   if (data.active) return <Navigate to="/session" replace />;
@@ -109,7 +111,7 @@ export default function Study() {
       topic,
       goal,
       config: mode === 'countdown' ? { mode, targetMin: cd } : mode === 'pomodoro' ? { mode, pomodoro } : { mode },
-      friendIds: room ? [] : friendIds,
+      friendIds: room || live ? [] : friendIds,
       roomId: room?.id,
     });
     if (r.ok) navigate('/session', { replace: true });
@@ -117,7 +119,7 @@ export default function Study() {
   }
 
   const toggleFriend = (id: string) => setFriendIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
-  const roomMates = room ? presences.filter(({ f, p }) => p.state === 'studying' && roomOf(f) === room.id) : [];
+  const roomMates = room ? rows.filter((r) => r.state === 'studying' && r.roomId === room.id) : [];
 
   return (
     <div className="page">
@@ -277,7 +279,21 @@ export default function Study() {
           )}
         </section>
 
-        {!room && (
+        {!room && live && (
+          <section className="card" aria-labelledby="fr-h">
+            <h2 id="fr-h" className="card-title">
+              Study with friends
+            </h2>
+            <p className="muted small">
+              Friends you’ve accepted can see when you’re studying if you share your status.{' '}
+              <Link to="/settings#privacy" className="link-btn">
+                Privacy settings
+              </Link>
+            </p>
+          </section>
+        )}
+
+        {!room && !live && (
           <section className="card" aria-labelledby="fr-h">
             <div className="card-head">
               <h2 id="fr-h" className="card-title">
@@ -311,12 +327,12 @@ export default function Study() {
           <section className="card" aria-label="Friends in this room">
             <h2 className="card-title">In the room now</h2>
             {roomMates.length === 0 ? (
-              <p className="muted">No simulated friends are in this room right now. You’ll have it to yourself.</p>
+              <p className="muted">{live ? 'None of your friends are in this room right now.' : 'No simulated friends are in this room right now. You’ll have it to yourself.'}</p>
             ) : (
               <ul className="avatar-row">
-                {roomMates.map(({ f, p }) => (
-                  <li key={f.id}>
-                    <FriendAvatar friend={f} state={p.state} size={36} /> {f.name}
+                {roomMates.map((r) => (
+                  <li key={r.removeId}>
+                    <FriendAvatar friend={r} state={r.state} size={36} /> {r.name}
                   </li>
                 ))}
               </ul>

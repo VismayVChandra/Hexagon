@@ -6,6 +6,7 @@ import { computeView, modeLabel } from '../lib/timer';
 import { dayKey, formatClock, formatDuration, spokenDuration, MIN } from '../lib/time';
 import { todayMs } from '../lib/stats';
 import { ROOMS, friendPresence } from '../data/friendsSim';
+import { useFriendRows } from '../cloud/useFriendRows';
 import { Bar, DemoBadge, FriendAvatar, ProgressRing, StateBadge, SubjectDot, Toggle } from '../components/bits';
 import { Icon } from '../components/Icon';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
@@ -32,6 +33,7 @@ export default function Session() {
   // Set just before we clear the session ourselves, so the "no session -> go to Study" redirect doesn't race our own navigation.
   const leaving = useRef(false);
   const wake = useWakeLock(running && data.settings.keepAwake);
+  const { live, rows: friendRows } = useFriendRows(now);
   // Smaller ring on short screens so the controls stay in view without scrolling.
   const compact = useMediaQuery('(max-height: 780px)');
 
@@ -66,7 +68,8 @@ export default function Session() {
   }
 
   const room = ROOMS.find((r) => r.id === active.roomId);
-  const companions = data.friends.filter((f) => active.friendIds.includes(f.id));
+  const companions = live ? [] : data.friends.filter((f) => active.friendIds.includes(f.id));
+  const liveStudying = live ? friendRows.filter((r) => r.state === 'studying') : [];
   const isBreak = view.phase === 'break';
   const stateLabel = view.done ? 'Time’s up' : isBreak ? 'Break' : !view.running ? 'Paused' : active.config.mode === 'pomodoro' ? `Focus ${view.block}` : 'Studying';
   const ringProgress = view.progress ?? (view.totalRunMs % 60_000) / 60_000;
@@ -217,15 +220,32 @@ export default function Session() {
         </button>
       </div>
 
-      {(companions.length > 0 || room) && (
+      {(companions.length > 0 || room || liveStudying.length > 0) && (
         <section className="card" aria-labelledby="with-h">
           <div className="card-head">
             <h2 id="with-h" className="card-title">
-              Studying alongside
+              {live ? 'Friends studying now' : 'Studying alongside'}
             </h2>
-            <DemoBadge>Simulated</DemoBadge>
+            {!live && <DemoBadge>Simulated</DemoBadge>}
           </div>
-          {room && companions.length === 0 ? (
+          {live ? (
+            liveStudying.length === 0 ? (
+              <p className="muted small">None of your friends are studying right now{room ? `, but you’re in ${room.name}` : ''}.</p>
+            ) : (
+              <ul className="companions">
+                {liveStudying.map((r) => (
+                  <li key={r.removeId}>
+                    <FriendAvatar friend={r} state={r.state} size={36} />
+                    <span className="pick-name">{r.name}</span>
+                    <span className="muted small">
+                      {r.subject ? `${r.subject} · ` : ''}
+                      {formatDuration(r.sessionMs)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : room && companions.length === 0 ? (
             <p className="muted small">You’re in <strong>{room.name}</strong>. Friends in this demo room are simulated on this device.</p>
           ) : (
             <ul className="companions">

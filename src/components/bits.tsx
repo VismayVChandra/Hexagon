@@ -22,7 +22,7 @@ export function DemoBadge({ children = 'Demo' }: { children?: ReactNode }) {
   return <span className="badge badge-demo">{children}</span>;
 }
 
-export function FriendAvatar({ friend, state, size = 40 }: { friend: Friend; state?: FriendState; size?: number }) {
+export function FriendAvatar({ friend, state, size = 40 }: { friend: Pick<Friend, 'name' | 'hue'>; state?: FriendState; size?: number }) {
   return (
     <span className="avatar-wrap" style={{ width: size, height: size }}>
       <span

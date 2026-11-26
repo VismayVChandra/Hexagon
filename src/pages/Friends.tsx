@@ -1,43 +1,118 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { addFriend, removeFriend, useStore, validateFriendName } from '../store/store';
-import { ROOMS, friendPresence, roomOf } from '../data/friendsSim';
+import { ROOMS } from '../data/friendsSim';
 import { showToast, useNow } from '../hooks/hooks';
+import { addFriendByCode, removeFriendship, respondToRequest, setPendingInvite, useCloud } from '../cloud/cloud';
+import { cloudConfigured } from '../cloud/config';
+import { formatFriendCode, normalizeFriendCode } from '../cloud/presence';
+import { useFriendRows } from '../cloud/useFriendRows';
 import { formatDuration } from '../lib/time';
+import { CloudSignIn } from '../components/CloudSignIn';
 import { DemoBadge, EmptyState, Field, FriendAvatar, StateBadge } from '../components/bits';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
-import type { FriendState } from '../types';
-
-const ORDER: Record<FriendState, number> = { studying: 0, finished: 1, online: 2, offline: 3 };
 
 export default function Friends() {
   const { data } = useStore();
+  const cloud = useCloud();
   const now = useNow(true, 20_000);
-  const { friends, settings, active } = data;
+  const { live, rows } = useFriendRows(now);
+  const { settings, active } = data;
+  const [params, setParams] = useSearchParams();
+
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
 
-  const rows = useMemo(
-    () => friends.map((f) => ({ f, p: friendPresence(f, now) })).sort((a, b) => ORDER[a.p.state] - ORDER[b.p.state] || a.f.name.localeCompare(b.f.name)),
-    [friends, now],
-  );
-  const removingFriend = friends.find((f) => f.id === removing);
+  // An invite link looks like #/friends?code=ABCD2345. Keep the code until the person is signed in.
+  const inviteParam = params.get('code');
+  useEffect(() => {
+    if (!inviteParam) return;
+    const c = normalizeFriendCode(inviteParam);
+    if (c && cloudConfigured) setPendingInvite(c);
+    setParams({}, { replace: true });
+  }, [inviteParam, setParams]);
 
-  function submit(e: React.FormEvent) {
+  useEffect(() => {
+    if (live && cloud.pendingInvite) {
+      setCode(formatFriendCode(cloud.pendingInvite));
+      setError(undefined);
+      setAdding(true);
+      setPendingInvite(null);
+    }
+  }, [live, cloud.pendingInvite]);
+
+  const removingRow = rows.find((r) => r.removeId === removing);
+  const closeAdd = () => {
+    setAdding(false);
+    setError(undefined);
+  };
+
+  function submitDemo(e: React.FormEvent) {
     e.preventDefault();
-    const err = validateFriendName(name, friends);
+    const err = validateFriendName(name, data.friends);
     if (err) return setError(err);
     const r = addFriend(name);
     if (r.ok) {
       showToast(`${r.value.name} added as a simulated study buddy.`);
       setName('');
-      setError(undefined);
-      setAdding(false);
+      closeAdd();
     }
   }
+
+  async function submitCode(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const r = await addFriendByCode(code);
+    setBusy(false);
+    if (r.ok) {
+      showToast(r.message ?? 'Done.');
+      setCode('');
+      closeAdd();
+    } else setError(r.error);
+  }
+
+  async function copy(text: string, what: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(`${what} copied.`);
+    } catch {
+      showToast('Couldn’t copy. Select it and copy by hand.', 'error');
+    }
+  }
+
+  async function shareInvite() {
+    const c = cloud.profile?.friendCode;
+    if (!c) return;
+    const url = `${location.origin}${location.pathname}#/friends?code=${c}`;
+    const text = `Add me on Hexagon. My friend code is ${formatFriendCode(c)}.`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Study with me on Hexagon', text, url });
+        return;
+      } catch {
+        /* cancelled: fall through to copy */
+      }
+    }
+    await copy(url, 'Invite link');
+  }
+
+  async function confirmRemove() {
+    const id = removing;
+    setRemoving(null);
+    if (!id) return;
+    if (live) {
+      const r = await removeFriendship(id);
+      if (!r.ok) showToast(r.error, 'error');
+    } else removeFriend(id);
+  }
+
+  const incoming = cloud.requests.filter((r) => r.direction === 'incoming');
+  const outgoing = cloud.requests.filter((r) => r.direction === 'outgoing');
 
   return (
     <div className="page">
@@ -51,12 +126,45 @@ export default function Friends() {
         </button>
       </header>
 
-      <div className="banner banner-info" role="note">
-        <Icon name="info" />
-        <p>
-          <strong>Demo mode.</strong> Friends and rooms are simulated on this device from the clock. Nobody is actually connected, and nothing you do is shared. Real friends across devices need an account service, which isn’t part of this version.
-        </p>
-      </div>
+      {!live && (
+        <div className="banner banner-info" role="note">
+          <Icon name="info" />
+          <p>
+            <strong>Demo mode.</strong> The friends and rooms below are simulated on this device from the clock. Nobody is actually connected, and nothing you do is shared.
+            {cloudConfigured ? ' Sign in below to add real friends.' : ' Real friends need an account service, which isn’t connected to this copy of the app.'}
+          </p>
+        </div>
+      )}
+
+      {cloudConfigured && !live && (
+        <section className="card" aria-labelledby="real-h">
+          <h2 id="real-h" className="card-title">
+            Add real friends
+          </h2>
+          <p className="muted small">Sign in with your email to swap friend codes. Your study data stays on your device. Only your name — and your status, if you turn that on — is visible to friends you accept.</p>
+          <CloudSignIn />
+        </section>
+      )}
+
+      {live && cloud.profile && (
+        <section className="card code-card" aria-labelledby="code-h">
+          <p className="eyebrow" id="code-h">
+            Your friend code
+          </p>
+          <p className="friend-code" aria-label={`Your friend code is ${cloud.profile.friendCode.split('').join(' ')}`}>
+            {formatFriendCode(cloud.profile.friendCode)}
+          </p>
+          <div className="row">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void copy(cloud.profile!.friendCode, 'Friend code')}>
+              Copy code
+            </button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => void shareInvite()}>
+              <Icon name="share" size={16} /> Share invite
+            </button>
+          </div>
+          <p className="hint">Anyone with your code can send you a request. Nothing is shared until you accept.</p>
+        </section>
+      )}
 
       <section className="card privacy-card" aria-labelledby="me-h">
         <div className="card-head">
@@ -69,46 +177,127 @@ export default function Friends() {
         </div>
         <p>
           <Icon name="lock" size={16} className="inline-icon" />{' '}
-          {settings.sharePresence ? (settings.shareSubject ? 'Friends in demo rooms see when you’re studying, and the subject.' : 'Friends in demo rooms see when you’re studying, but not the subject.') : 'Private. When you study, nobody sees it.'}
+          {settings.sharePresence
+            ? settings.shareSubject
+              ? `${live ? 'Friends you’ve accepted' : 'Friends in demo rooms'} see when you’re studying, and the subject.`
+              : `${live ? 'Friends you’ve accepted' : 'Friends in demo rooms'} see when you’re studying, but not the subject.`
+            : 'Private. When you study, nobody sees it.'}
         </p>
       </section>
+
+      {live && incoming.length > 0 && (
+        <section className="card" aria-labelledby="in-h">
+          <h2 id="in-h" className="card-title">
+            Friend requests
+          </h2>
+          <ul className="friend-list">
+            {incoming.map((r) => (
+              <li key={r.id}>
+                <div className="friend-main">
+                  <p className="item-title">{r.name}</p>
+                  <p className="muted small">wants to be friends</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={async () => {
+                    const res = await respondToRequest(r.id, true);
+                    showToast(res.ok ? `You and ${r.name} are friends.` : res.error, res.ok ? 'success' : 'error');
+                  }}
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-quiet btn-sm"
+                  onClick={async () => {
+                    const res = await respondToRequest(r.id, false);
+                    if (!res.ok) showToast(res.error, 'error');
+                  }}
+                >
+                  Decline
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="card" aria-labelledby="list-h">
         <div className="card-head">
           <h2 id="list-h" className="card-title">
             Study buddies
           </h2>
-          {rows.length > 0 && <DemoBadge>Simulated</DemoBadge>}
+          {rows.length > 0 && !live && <DemoBadge>Simulated</DemoBadge>}
         </div>
+        {live && <p className="hint">{cloud.syncError ? 'Offline. Showing the last update we got.' : 'Updates about every 20 seconds while the app is open.'}</p>}
         {rows.length === 0 ? (
-          <EmptyState title="No friends yet" body="Add a friend to try the experience. In this version they’re simulated." action={<button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}>Add a friend</button>} />
+          <EmptyState
+            title="No friends yet"
+            body={live ? 'Share your friend code, or add a friend’s code, to see when they’re studying.' : 'Add a friend to try the experience. In this version they’re simulated.'}
+            action={
+              <button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}>
+                Add a friend
+              </button>
+            }
+          />
         ) : (
           <ul className="friend-list">
-            {rows.map(({ f, p }) => (
-              <li key={f.id}>
-                <FriendAvatar friend={f} state={p.state} size={44} />
+            {rows.map((r) => (
+              <li key={r.removeId}>
+                <FriendAvatar friend={r} state={r.state} size={44} />
                 <div className="friend-main">
-                  <p className="item-title">{f.name}</p>
+                  <p className="item-title">{r.name}</p>
                   <p className="muted small">
-                    {p.state === 'studying' && (
+                    {r.state === 'studying' && (
                       <>
-                        {p.subject ? p.subject : 'Subject private'} · {formatDuration(p.sessionMs)} so far
+                        {r.subject ?? 'Subject private'} · {formatDuration(r.sessionMs)} so far
                       </>
                     )}
-                    {p.state === 'finished' && <>Studied {formatDuration(p.sessionMs)}{p.subject ? ` · ${p.subject}` : ''}</>}
-                    {p.state === 'online' && 'Around, not studying'}
-                    {p.state === 'offline' && 'Offline'}
+                    {r.state === 'finished' && (
+                      <>
+                        Studied {formatDuration(r.sessionMs)}
+                        {r.subject ? ` · ${r.subject}` : ''}
+                      </>
+                    )}
+                    {r.state === 'online' && 'Around, not studying'}
+                    {r.state === 'offline' && (live ? 'Offline or not sharing' : 'Offline')}
                   </p>
                 </div>
-                <StateBadge state={p.state} />
-                <button type="button" className="icon-btn" aria-label={`Remove ${f.name}`} onClick={() => setRemoving(f.id)}>
+                <StateBadge state={r.state} />
+                <button type="button" className="icon-btn" aria-label={`Remove ${r.name}`} onClick={() => setRemoving(r.removeId)}>
                   <Icon name="trash" size={18} />
                 </button>
               </li>
             ))}
           </ul>
         )}
-        {rows.length > 0 && (
+        {live && outgoing.length > 0 && (
+          <div>
+            <p className="eyebrow">Waiting for them to accept</p>
+            <ul className="friend-list">
+              {outgoing.map((r) => (
+                <li key={r.id}>
+                  <div className="friend-main">
+                    <p className="item-title">{r.name}</p>
+                    <p className="muted small">Request sent</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-quiet btn-sm"
+                    onClick={async () => {
+                      const res = await removeFriendship(r.id);
+                      if (!res.ok) showToast(res.error, 'error');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {rows.length > 0 && !live && (
           <Link to="/study" className="btn btn-quiet btn-block">
             <Icon name="users" size={18} /> Start a session with friends
           </Link>
@@ -120,11 +309,11 @@ export default function Friends() {
           <h2 id="rooms-h" className="section-title">
             Shared focus rooms
           </h2>
-          <DemoBadge>Simulated</DemoBadge>
+          {!live && <DemoBadge>Simulated</DemoBadge>}
         </div>
         <div className="grid-cards">
           {ROOMS.map((r) => {
-            const here = rows.filter(({ f, p }) => p.state === 'studying' && roomOf(f) === r.id);
+            const here = rows.filter((x) => x.state === 'studying' && x.roomId === r.id);
             const youHere = active?.roomId === r.id && settings.sharePresence;
             return (
               <article key={r.id} className="card room-card" aria-labelledby={`room-${r.id}`}>
@@ -138,14 +327,14 @@ export default function Friends() {
                   ) : (
                     <>
                       <ul className="avatar-stack">
-                        {here.map(({ f, p }) => (
-                          <li key={f.id} title={f.name}>
-                            <FriendAvatar friend={f} state={p.state} size={32} />
+                        {here.map((x) => (
+                          <li key={x.removeId} title={x.name}>
+                            <FriendAvatar friend={x} state={x.state} size={32} />
                           </li>
                         ))}
                       </ul>
                       <span className="muted small">
-                        {here.map(({ f }) => f.name).join(', ')}
+                        {here.map((x) => x.name).join(', ')}
                         {youHere ? `${here.length ? ' and ' : ''}you` : ''}
                       </span>
                     </>
@@ -164,38 +353,53 @@ export default function Friends() {
             );
           })}
         </div>
-        <p className="hint">Rooms are quiet: you can see who’s focusing, nothing more.</p>
+        <p className="hint">{live ? 'Rooms are quiet: you only see which of your friends are focusing in each one, and only if they share their status.' : 'Rooms are quiet: you can see who’s focusing, nothing more.'}</p>
       </section>
 
-      <Dialog open={adding} onClose={() => { setAdding(false); setError(undefined); }} title="Add a friend">
-        <form onSubmit={submit} noValidate className="stack">
-          <p className="muted small">
-            Hexagon can’t connect to real accounts yet, so this adds a <strong>simulated</strong> study buddy to try the flow. They aren’t a real person and aren’t notified.
-          </p>
-          <Field label="Friend’s name" htmlFor="friend-name" error={error}>
-            <input id="friend-name" value={name} autoComplete="off" maxLength={40} aria-invalid={!!error} onChange={(e) => setName(e.target.value)} autoFocus />
-          </Field>
-          <div className="dialog-actions">
-            <button type="button" className="btn btn-quiet" onClick={() => { setAdding(false); setError(undefined); }}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary">
-              Add friend
-            </button>
-          </div>
-        </form>
+      <Dialog open={adding} onClose={closeAdd} title="Add a friend">
+        {live ? (
+          <form onSubmit={submitCode} noValidate className="stack">
+            <p className="muted small">Ask your friend for their friend code (it’s on their Friends page) and enter it here. They’ll get a request to accept.</p>
+            <Field label="Friend code" htmlFor="friend-code" error={error}>
+              <input id="friend-code" value={code} autoComplete="off" autoCapitalize="characters" spellCheck={false} maxLength={12} placeholder="ABCD-2345" aria-invalid={!!error} onChange={(e) => setCode(e.target.value)} data-autofocus />
+            </Field>
+            <div className="dialog-actions">
+              <button type="button" className="btn btn-quiet" onClick={closeAdd}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={busy}>
+                {busy ? 'Sending…' : 'Send request'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={submitDemo} noValidate className="stack">
+            <p className="muted small">
+              {cloudConfigured ? 'You’re not signed in, so this adds a ' : 'Hexagon can’t connect to real accounts yet, so this adds a '}
+              <strong>simulated</strong> study buddy to try the flow. They aren’t a real person and aren’t notified.
+            </p>
+            <Field label="Friend’s name" htmlFor="friend-name" error={error}>
+              <input id="friend-name" value={name} autoComplete="off" maxLength={40} aria-invalid={!!error} onChange={(e) => setName(e.target.value)} data-autofocus />
+            </Field>
+            <div className="dialog-actions">
+              <button type="button" className="btn btn-quiet" onClick={closeAdd}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Add friend
+              </button>
+            </div>
+          </form>
+        )}
       </Dialog>
 
       <ConfirmDialog
-        open={!!removingFriend}
-        title={`Remove ${removingFriend?.name ?? 'friend'}?`}
-        message="They’ll disappear from your list and from rooms."
+        open={!!removingRow}
+        title={`Remove ${removingRow?.name ?? 'friend'}?`}
+        message={live ? 'You’ll stop seeing each other’s status. They aren’t notified.' : 'They’ll disappear from your list and from rooms.'}
         confirmLabel="Remove"
         danger
-        onConfirm={() => {
-          if (removing) removeFriend(removing);
-          setRemoving(null);
-        }}
+        onConfirm={() => void confirmRemove()}
         onCancel={() => setRemoving(null)}
       />
     </div>

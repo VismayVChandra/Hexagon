@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { exportJson, getState, hasDemoData, removeDemoData, resetEverything, updateSettings, useStore } from '../store/store';
 import { hapticsSupported, showToast, useInstall, wakeLockSupported } from '../hooks/hooks';
 import { Field, Toggle } from '../components/bits';
+import { cloudConfigured } from '../cloud/config';
+import { deleteCloudData, renameSelf, signOut, useCloud } from '../cloud/cloud';
+import { formatFriendCode } from '../cloud/presence';
 import type { ThemePref } from '../types';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
@@ -33,6 +36,11 @@ export default function SettingsPage() {
   const { data, storageKind } = useStore();
   const { settings } = data;
   const install = useInstall();
+  const cloud = useCloud();
+  const live = cloudConfigured && cloud.phase === 'signed-in';
+  const [confirmDeleteCloud, setConfirmDeleteCloud] = useState(false);
+  const [cloudName, setCloudName] = useState(cloud.profile?.displayName ?? '');
+  const [cloudNameError, setCloudNameError] = useState<string>();
   const loc = useLocation();
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -163,9 +171,69 @@ export default function SettingsPage() {
           Privacy
         </h2>
         <p className="muted small">Your study data stays on this device. Nothing is uploaded, and there’s no analytics.</p>
-        <Toggle id="s-presence" checked={settings.sharePresence} onChange={(v) => updateSettings({ sharePresence: v, ...(v ? {} : { shareSubject: false }) })} label="Let friends see when I’m studying" description="Off by default. In this demo it only affects how you appear in simulated rooms on this device." />
+        <Toggle id="s-presence" checked={settings.sharePresence} onChange={(v) => updateSettings({ sharePresence: v, ...(v ? {} : { shareSubject: false }) })} label="Let friends see when I’m studying" description={live ? 'Off by default. When on, friends you’ve accepted can see when you’re studying.' : cloudConfigured ? 'Off by default. Sign in on the Friends page to share with real friends. Until then it only affects simulated rooms.' : 'Off by default. In this demo it only affects how you appear in simulated rooms on this device.'} />
         <Toggle id="s-subject" checked={settings.shareSubject} disabled={!settings.sharePresence} onChange={(v) => updateSettings({ shareSubject: v })} label="Also show my subject" description="Only available if the setting above is on." />
       </section>
+
+      {cloudConfigured && (
+        <section className="card" aria-labelledby="acct-h">
+          <h2 id="acct-h" className="card-title">
+            Friends account
+          </h2>
+          {live && cloud.profile ? (
+            <>
+              <p className="muted small">
+                Signed in as <strong>{cloud.email}</strong>. Your study sessions never leave this device. Only your name, and your status if you share it, are visible to friends you’ve accepted.
+              </p>
+              <p>
+                Friend code: <strong>{formatFriendCode(cloud.profile.friendCode)}</strong>
+              </p>
+              <form
+                className="inline-form"
+                noValidate
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const r = await renameSelf(cloudName);
+                  setCloudNameError(r.ok ? undefined : r.error);
+                  if (r.ok) showToast('Name updated.');
+                }}
+              >
+                <Field label="Name shown to friends" htmlFor="cloud-rename" error={cloudNameError}>
+                  <input id="cloud-rename" value={cloudName} maxLength={30} autoComplete="given-name" aria-invalid={!!cloudNameError} onChange={(e) => setCloudName(e.target.value)} />
+                </Field>
+                <button type="submit" className="btn btn-secondary btn-sm">
+                  Save name
+                </button>
+              </form>
+              <div className="row">
+                <button type="button" className="btn btn-secondary" disabled={cloud.busy} onClick={() => void signOut()}>
+                  Sign out
+                </button>
+                <button type="button" className="btn btn-quiet btn-danger-text" disabled={cloud.busy} onClick={() => setConfirmDeleteCloud(true)}>
+                  Delete my friends data
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="muted">
+              Not signed in. <Link to="/friends" className="link-btn">Sign in on the Friends page</Link> to add real friends.
+            </p>
+          )}
+        </section>
+      )}
+
+      <ConfirmDialog
+        open={confirmDeleteCloud}
+        title="Delete your friends data?"
+        message="This removes your profile, friend code, friendships and shared status from the server, and signs you out. Your study sessions on this device are not affected."
+        confirmLabel="Delete friends data"
+        danger
+        onConfirm={() => {
+          setConfirmDeleteCloud(false);
+          void deleteCloudData().then(() => showToast('Friends data deleted.', 'info'));
+        }}
+        onCancel={() => setConfirmDeleteCloud(false)}
+      />
 
       <section className="card" aria-labelledby="inst-h">
         <h2 id="inst-h" className="card-title">

@@ -20,7 +20,11 @@ export function Dialog({ open, onClose, title, children, small, dismissible = tr
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (open && !el.open) el.showModal();
+    if (open && !el.open) {
+      el.showModal();
+      // showModal() focuses the first control (the Close button). Put focus on the intended field instead.
+      el.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    }
     if (!open && el.open) el.close();
   }, [open]);
 
@@ -70,7 +74,7 @@ export function ConfirmDialog({ open, title, message, confirmLabel, cancelLabel 
     <Dialog open={open} onClose={onCancel} title={title} small>
       <p className="muted">{message}</p>
       <div className="dialog-actions">
-        <button type="button" className="btn btn-quiet" onClick={onCancel} autoFocus>
+        <button type="button" className="btn btn-quiet" onClick={onCancel} data-autofocus>
           {cancelLabel}
         </button>
         <button type="button" className={`btn ${danger ? 'btn-danger' : 'btn-primary'}`} onClick={onConfirm}>

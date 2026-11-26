@@ -2077,3 +2077,22 @@ input:disabled {
 .segment svg {
   flex: none;
 }
+
+/* ---------- friend code card ---------- */
+.code-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--primary) 10%, var(--surface)) 0%, var(--surface) 60%);
+}
+.friend-code {
+  font-family: var(--serif);
+  font-size: clamp(1.9rem, 9vw, 2.6rem);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+.friend-list .btn-sm {
+  flex: none;
+}

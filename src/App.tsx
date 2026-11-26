@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { HashRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { dismissSummary, heartbeat, initStore, isDemoMode, removeDemoData, resolveAway, startFresh, updateSettings, useStore, watchOtherTabs } from './store/store';
 import { useApplyTheme, useResolvedTheme } from './lib/theme';
+import { initCloud } from './cloud/cloud';
 import { showToast, useNow, useToasts } from './hooks/hooks';
 import { computeView } from './lib/timer';
 import { formatClock, formatTimeOfDay } from './lib/time';
@@ -223,6 +224,10 @@ function Gate() {
   const { status, loadError, data } = useStore();
   // Only apply once the saved choice has loaded; until then the pre-paint script in index.html decides.
   useApplyTheme(status === 'ready' ? data.settings.theme : null);
+  // Real friends (optional): check for a saved sign-in once the local data has loaded.
+  useEffect(() => {
+    if (status === 'ready') void initCloud();
+  }, [status]);
 
   useEffect(() => {
     void initStore();
