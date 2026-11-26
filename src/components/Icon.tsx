@@ -1,3 +1,5 @@
+import { LOGO_OUTER, LOGO_RING } from '../lib/hexPaths';
+
 const PATHS: Record<string, string> = {
   home: 'M3 11l9-7 9 7M5 10v10h5v-6h4v6h5V10',
   chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
@@ -50,8 +52,18 @@ export function Icon({ name, size = 20, className }: { name: IconName; size?: nu
 export function Logo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-      <polygon points="32,4 56,18 56,46 32,60 8,46 8,18" fill="var(--primary)" />
-      <polygon points="32,16 46,24 46,40 32,48 18,40 18,24" fill="none" stroke="var(--honey)" strokeWidth="4" strokeLinejoin="round" />
+      <defs>
+        <linearGradient id="logo-forest" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#4a8a77" />
+          <stop offset="1" stopColor="#1f463c" />
+        </linearGradient>
+        <linearGradient id="logo-honey" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f7d675" />
+          <stop offset="1" stopColor="#e0a02c" />
+        </linearGradient>
+      </defs>
+      <path d={LOGO_OUTER} fill="url(#logo-forest)" />
+      <path d={LOGO_RING} fill="url(#logo-honey)" fillRule="evenodd" />
     </svg>
   );
 }

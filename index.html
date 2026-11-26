@@ -18,6 +18,14 @@
     <meta name="format-detection" content="telephone=no" />
   </head>
   <body>
+    <!-- Shared rounded-hexagon clip-path (0..1 box) used by every hex-shaped element via clip-path: url(#hex-round) -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false">
+      <defs>
+        <clipPath id="hex-round" clipPathUnits="objectBoundingBox">
+          <path d="M0.4001 0.0500Q0.5000 0.0000 0.5999 0.0500L0.9001 0.2000Q1.0000 0.2500 1.0000 0.3500L1.0000 0.6500Q1.0000 0.7500 0.9001 0.8000L0.5999 0.9500Q0.5000 1.0000 0.4001 0.9500L0.0999 0.8000Q0.0000 0.7500 0.0000 0.6500L0.0000 0.3500Q0.0000 0.2500 0.0999 0.2000Z" />
+        </clipPath>
+      </defs>
+    </svg>
     <div id="root">
       <p style="font-family: system-ui, sans-serif; padding: 2rem; color: #555">Loading Hexagon…</p>
     </div>

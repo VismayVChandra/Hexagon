@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import type { Friend, FriendState, Subject } from '../types';
 import { SUBJECT_COLORS } from '../data/seed';
 import { STATE_LABEL } from '../data/friendsSim';
@@ -102,16 +102,27 @@ export function ProgressRing({ value, size = 132, stroke = 10, children, label }
     return () => cancelAnimationFrame(id);
   }, [value]);
   const v = Math.max(0, Math.min(1, shown));
+  const gid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   return (
     <div className={`ring${value >= 1 ? ' is-complete' : ''}`} style={{ width: size, height: size }} role="img" aria-label={label}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+        <defs>
+          <linearGradient id={`${gid}-p`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--ring-a)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--ring-b)' }} />
+          </linearGradient>
+          <linearGradient id={`${gid}-h`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--honey-a)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--honey-b)' }} />
+          </linearGradient>
+        </defs>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--track)" strokeWidth={stroke} />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={v >= 1 ? 'var(--honey)' : 'var(--primary)'}
+          stroke={`url(#${gid}-${value >= 1 ? 'h' : 'p'})`}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}
@@ -129,7 +140,7 @@ export function Bar({ value, color = 'var(--primary)', label }: { value: number;
   const v = Math.max(0, Math.min(1, value));
   return (
     <div className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(v * 100)} aria-label={label}>
-      <div className="bar-fill" style={{ width: `${v * 100}%`, background: color }} />
+      <div className="bar-fill" style={{ width: `${v * 100}%`, backgroundColor: color }} />
     </div>
   );
 }
