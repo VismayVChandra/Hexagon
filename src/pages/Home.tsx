@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { hasDemoData, removeDemoData, startSession, updateSettings, useStore } from '../store/store';
+import { isDemoMode, startSession, updateSettings, useStore } from '../store/store';
 import { useInstall, useNow, primeAudio, showToast } from '../hooks/hooks';
 import { currentStreak, sessionDay, STREAK_MIN_MS, subjectTotals, sessionsInRange, sum, todayMs, totalsByDay, weekMs } from '../lib/stats';
 import { MIN, addDays, daysBetween, dayKey, formatDayLabel, formatDuration, greeting, relativeDays, weekStartKey, parseDayKey, formatShortDate } from '../lib/time';
@@ -59,25 +59,6 @@ export default function Home() {
         </h1>
       </header>
 
-      {!settings.demoBannerDismissed && hasDemoData(data) && (
-        <div className="banner banner-info" role="note">
-          <Icon name="info" />
-          <div>
-            <p>
-              <strong>You’re looking at demo data</strong> — sample sessions, exams and simulated friends so you can explore.
-            </p>
-            <div className="row">
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => { removeDemoData(); showToast('Demo data removed. Your own sessions are untouched.'); }}>
-                Remove demo data
-              </button>
-              <button type="button" className="btn btn-quiet btn-sm" onClick={() => updateSettings({ demoBannerDismissed: true })}>
-                Keep exploring
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <section className="card hero" aria-labelledby="hero-h">
         <div className="hero-copy">
           <h2 id="hero-h" className="hero-title">
@@ -86,7 +67,9 @@ export default function Home() {
           <p className="muted">
             {active
               ? 'Pick up right where you left off.'
-              : streak.days > 0 && !streak.todayDone
+              : isDemoMode(data)
+                ? 'Take a look around the sample data. When you start a session of your own, you’ll land in a fresh space.'
+                : streak.days > 0 && !streak.todayDone
                 ? `Study ${formatDuration(STREAK_MIN_MS)} today to keep your ${streak.days}-day streak.`
                 : 'Choose a subject and begin in a couple of taps.'}
           </p>

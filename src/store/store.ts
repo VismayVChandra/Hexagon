@@ -6,6 +6,7 @@ import { makeSimFriend } from '../data/friendsSim';
 import { uid } from '../lib/id';
 import { AWAY_THRESHOLD_MS, computeView, extendCountdown, pause, resume, skipBreak, stopAtLastSeen } from '../lib/timer';
 import { isValidDayKey } from '../lib/time';
+import { showToast } from '../hooks/hooks';
 
 export interface StoreState {
   status: 'loading' | 'ready' | 'error';
@@ -66,6 +67,39 @@ function commit(next: AppData) {
 
 function mutate(fn: (d: AppData) => AppData) {
   commit(fn(state.data));
+}
+
+// ---------- demo mode ----------
+
+/** True while the app still holds sample sessions or exams that came with the first launch. */
+export function isDemoMode(d: AppData): boolean {
+  return d.sessions.some((s) => s.demo) || d.exams.some((e) => e.demo);
+}
+
+/**
+ * Removes the sample content. Anything the student created is kept, and so is any sample subject
+ * their own data still uses. Simulated friends are cleared unless listed in `keepFriendIds`.
+ */
+export function stripDemo(d: AppData, keepFriendIds: string[] = []): AppData {
+  const sessions = d.sessions.filter((s) => !s.demo);
+  const exams = d.exams.filter((e) => !e.demo);
+  const used = new Set<string>([...sessions.map((s) => s.subjectId), ...exams.map((e) => e.subjectId)]);
+  if (d.active) used.add(d.active.subjectId);
+  // A sample subject the student's own data still uses becomes theirs.
+  const subjects = d.subjects.filter((s) => !s.demo || used.has(s.id)).map((s) => (s.demo ? { ...s, demo: undefined } : s));
+  const friends = d.friends.filter((f) => keepFriendIds.includes(f.id));
+  return { ...d, sessions, exams, subjects, friends };
+}
+
+/**
+ * Used by actions that mean "I'm really using this now" (start a session, add a subject, an exam or a
+ * past session). While in demo mode, the first of these clears the sample data so the student lands in a fresh space.
+ */
+function mutateLeavingDemo(fn: (d: AppData) => AppData, keepFriendIds: string[] = []) {
+  const wasDemo = isDemoMode(state.data);
+  const next = fn(state.data);
+  commit(wasDemo ? stripDemo(next, keepFriendIds) : next);
+  if (wasDemo) showToast('Sample data cleared. This is your own fresh space now.', 'info');
 }
 
 // ---------- boot ----------
@@ -140,7 +174,7 @@ export function addSubject(name: string): Result<Subject> {
   const used = SUBJECT_COLORS.map((_, i) => state.data.subjects.filter((s) => s.color % SUBJECT_COLORS.length === i).length);
   const color = used.indexOf(Math.min(...used));
   const subject: Subject = { id: uid('sub'), name: name.trim(), color };
-  mutate((d) => ({ ...d, subjects: [...d.subjects, subject] }));
+  mutateLeavingDemo((d) => ({ ...d, subjects: [...d.subjects, subject] }));
   return { ok: true, value: subject };
 }
 
@@ -180,7 +214,7 @@ export function startSession(p: StartParams, now = Date.now()): Result<ActiveSes
     friendIds: p.friendIds,
     roomId: p.roomId,
   };
-  mutate((d) => ({ ...d, active, settings: { ...d.settings, lastSubjectId: p.subjectId } }));
+  mutateLeavingDemo((d) => ({ ...d, active, settings: { ...d.settings, lastSubjectId: p.subjectId } }), p.friendIds);
   return { ok: true, value: active };
 }
 
@@ -277,7 +311,7 @@ export function addManualSession(i: ManualSessionInput): Result<StudySession> {
     friendIds: [],
     manual: true,
   };
-  mutate((d) => ({ ...d, sessions: [...d.sessions, session] }));
+  mutateLeavingDemo((d) => ({ ...d, sessions: [...d.sessions, session] }));
   return { ok: true, value: session };
 }
 
@@ -322,7 +356,7 @@ export function saveExam(i: ExamInput, existingId?: string): Result<Exam> {
     return updated ? { ok: true, value: updated } : { ok: false, error: 'That exam no longer exists.' };
   }
   const exam: Exam = { id: uid('exm'), subjectId: i.subjectId, date: i.date, notes: i.notes.trim(), targetHours: i.targetHours, createdAt: Date.now() };
-  mutate((d) => ({ ...d, exams: [...d.exams, exam] }));
+  mutateLeavingDemo((d) => ({ ...d, exams: [...d.exams, exam] }));
   return { ok: true, value: exam };
 }
 
@@ -359,24 +393,17 @@ export function updateSettings(patch: Partial<Settings>) {
 }
 
 export function hasDemoData(d: AppData): boolean {
-  return d.sessions.some((s) => s.demo) || d.exams.some((e) => e.demo) || d.subjects.some((s) => s.demo) || d.friends.length > 0;
+  return isDemoMode(d) || d.friends.length > 0;
 }
 
-/** Removes demo sessions, exams and friends. Demo subjects stay only if the user's own data still uses them. */
+/** Removes the sample sessions and exams plus all simulated friends. */
 export function removeDemoData() {
-  mutate((d) => {
-    const sessions = d.sessions.filter((s) => !s.demo);
-    const exams = d.exams.filter((e) => !e.demo);
-    const used = new Set([...sessions.map((s) => s.subjectId), ...exams.map((e) => e.subjectId), d.active?.subjectId].filter(Boolean));
-    const subjects = d.subjects.filter((s) => !s.demo || used.has(s.id));
-    return { ...d, sessions, exams, subjects, friends: [], settings: { ...d.settings, demoBannerDismissed: true } };
-  });
+  mutate((d) => stripDemo(d));
 }
 
 export async function resetEverything() {
   await storage.reset();
   const data = emptyData();
-  data.settings.demoBannerDismissed = true;
   await storage.save(data).catch(() => undefined);
   set({ data, away: null, persistFailed: false });
 }

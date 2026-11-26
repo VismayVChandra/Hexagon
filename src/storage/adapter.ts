@@ -52,7 +52,6 @@ function sanitizeSettings(v: unknown): Settings {
     shareSubject: typeof s.shareSubject === 'boolean' ? s.shareSubject : false,
     lastSubjectId: isStr(s.lastSubjectId) ? s.lastSubjectId : undefined,
     installHintDismissed: s.installHintDismissed === true,
-    demoBannerDismissed: s.demoBannerDismissed === true,
   };
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { HashRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { heartbeat, initStore, resolveAway, startFresh, useStore, watchOtherTabs } from './store/store';
-import { useNow, useToasts } from './hooks/hooks';
+import { heartbeat, initStore, isDemoMode, removeDemoData, resolveAway, startFresh, useStore, watchOtherTabs } from './store/store';
+import { showToast, useNow, useToasts } from './hooks/hooks';
 import { computeView } from './lib/timer';
 import { formatClock, formatTimeOfDay } from './lib/time';
 import { Icon, Logo } from './components/Icon';
@@ -153,6 +153,22 @@ function Shell() {
       </nav>
 
       <main id="main" ref={mainRef} tabIndex={-1} className="main">
+        {isDemoMode(data) && !inSession && (
+          <div className="demo-strip" role="note">
+            <span className="badge badge-demo">Demo</span>
+            <p>Sample data to explore. Your first session, subject or exam starts a fresh space of your own.</p>
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => {
+                removeDemoData();
+                showToast('Sample data cleared. This is your own fresh space now.', 'info');
+              }}
+            >
+              Start fresh now
+            </button>
+          </div>
+        )}
         {persistFailed && (
           <div className="banner banner-warn" role="alert">
             <Icon name="alert" />

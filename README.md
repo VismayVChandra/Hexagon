@@ -51,7 +51,7 @@ version means writing one new adapter, then moving `persist()` to per-entity API
 | Installable PWA, offline app shell, iOS install hint, safe areas, reduced motion, keyboard and screen-reader support | Fully working |
 | Keep-screen-on during sessions | Works where the browser supports the Wake Lock API |
 | Friends, presence, shared focus rooms | **Demo only.** Simulated on the device from the clock. Nobody is connected. Labelled "Demo"/"Simulated" in the UI. |
-| Sample sessions/exams/friends on first launch | Demo data. Removable from Home or Settings. |
+| First launch | Opens in **demo mode** with sample sessions, exams and simulated friends, flagged with a "Demo" strip. Browsing never changes anything. Your first real action (start a session, add a subject or exam, log a past session) clears the sample data and starts a fresh space. "Start fresh now" in the strip or "Remove demo data" in Settings does the same. |
 | Push notifications, background alerts, cross-device sync | **Not implemented.** Chimes only play while the app is open. |
 
 Study data stays in the browser's localStorage. Nothing is uploaded and there is no analytics. Privacy sharing toggles are off by default.

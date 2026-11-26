@@ -96,7 +96,6 @@ export interface Settings {
   shareSubject: boolean;
   lastSubjectId?: string;
   installHintDismissed: boolean;
-  demoBannerDismissed: boolean;
 }
 
 export interface AppData {

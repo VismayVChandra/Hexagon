@@ -14,7 +14,6 @@ export const DEFAULT_SETTINGS: Settings = {
   sharePresence: false,
   shareSubject: false,
   installHintDismissed: false,
-  demoBannerDismissed: false,
 };
 
 const TOPICS: Record<string, string[]> = {

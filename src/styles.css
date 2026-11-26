@@ -513,6 +513,22 @@ summary.card-title {
   border-color: rgba(255, 255, 255, 0.3);
   color: inherit;
 }
+.demo-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 4px 0 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--honey-soft);
+  border: 1px solid color-mix(in srgb, var(--honey) 55%, transparent);
+  font-size: 0.875rem;
+}
+.demo-strip p {
+  flex: 1 1 220px;
+  color: var(--honey-ink);
+}
 .empty {
   display: flex;
   flex-direction: column;
