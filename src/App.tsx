@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { HashRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { dismissSummary, heartbeat, initStore, isDemoMode, removeDemoData, resolveAway, startFresh, useStore, watchOtherTabs } from './store/store';
+import { dismissSummary, heartbeat, initStore, isDemoMode, removeDemoData, resolveAway, startFresh, updateSettings, useStore, watchOtherTabs } from './store/store';
+import { useApplyTheme, useResolvedTheme } from './lib/theme';
 import { showToast, useNow, useToasts } from './hooks/hooks';
 import { computeView } from './lib/timer';
 import { formatClock, formatTimeOfDay } from './lib/time';
@@ -69,6 +70,8 @@ function Shell() {
   const redirected = useRef(false);
   const active = data.active;
   const inSession = loc.pathname === '/session';
+  const theme = useResolvedTheme(data.settings.theme);
+  const toggleTheme = () => updateSettings({ theme: theme === 'dark' ? 'light' : 'dark' });
 
   // Session recovery: if the app opens with a session in progress, take the student straight back to it.
   useEffect(() => {
@@ -121,9 +124,14 @@ function Shell() {
           <Logo size={26} />
           <span>Hexagon</span>
         </Link>
-        <Link to="/settings" className="icon-btn" aria-label="Settings">
-          <Icon name="settings" />
-        </Link>
+        <div className="topbar-actions">
+          <button type="button" className="icon-btn" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+          </button>
+          <Link to="/settings" className="icon-btn" aria-label="Settings">
+            <Icon name="settings" />
+          </Link>
+        </div>
       </header>
 
       <nav className="nav" aria-label="Main">
@@ -212,7 +220,9 @@ function Shell() {
 }
 
 function Gate() {
-  const { status, loadError } = useStore();
+  const { status, loadError, data } = useStore();
+  // Only apply once the saved choice has loaded; until then the pre-paint script in index.html decides.
+  useApplyTheme(status === 'ready' ? data.settings.theme : null);
 
   useEffect(() => {
     void initStore();

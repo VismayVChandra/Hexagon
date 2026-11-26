@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { exportJson, getState, hasDemoData, removeDemoData, resetEverything, updateSettings, useStore } from '../store/store';
 import { hapticsSupported, showToast, useInstall, wakeLockSupported } from '../hooks/hooks';
 import { Field, Toggle } from '../components/bits';
+import type { ThemePref } from '../types';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
 import { dayKey } from '../lib/time';
@@ -19,6 +20,12 @@ function toForm(s: Settings) {
     cycles: String(s.pomodoro.cyclesBeforeLong),
   };
 }
+
+const THEMES: { id: ThemePref; label: string; icon: 'sun' | 'moon' | 'device' }[] = [
+  { id: 'system', label: 'System', icon: 'device' },
+  { id: 'light', label: 'Light', icon: 'sun' },
+  { id: 'dark', label: 'Dark', icon: 'moon' },
+];
 
 const num = (s: string) => (s.trim() === '' ? NaN : Number(s));
 
@@ -77,6 +84,21 @@ export default function SettingsPage() {
   return (
     <div className="page">
       <h1 className="page-title">Settings</h1>
+
+      <section className="card" aria-labelledby="look-h">
+        <h2 id="look-h" className="card-title">
+          Appearance
+        </h2>
+        <div role="radiogroup" aria-labelledby="look-h" className="segmented">
+          {THEMES.map((t) => (
+            <button key={t.id} type="button" role="radio" aria-checked={settings.theme === t.id} className={`segment${settings.theme === t.id ? ' is-on' : ''}`} onClick={() => updateSettings({ theme: t.id })}>
+              <Icon name={t.icon} size={18} />
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
+        <p className="hint">{settings.theme === 'system' ? 'Follows your device’s light or dark setting.' : `Always ${settings.theme}, whatever your device is set to.`}</p>
+      </section>
 
       <form onSubmit={save} noValidate className="stack">
         <section className="card" aria-labelledby="prof-h">

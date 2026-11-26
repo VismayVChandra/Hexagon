@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Hexagon — study, together and quietly</title>
     <meta name="description" content="A calm study companion: start a session in seconds, focus alongside friends, track effort by subject and prepare for exams. Your data stays on your device." />
-    <meta name="theme-color" content="#F4EFE4" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#131917" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F4EFE4" />
     <meta name="color-scheme" content="light dark" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
@@ -16,6 +15,23 @@
     <meta name="apple-mobile-web-app-title" content="Hexagon" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="format-detection" content="telephone=no" />
+    <script>
+      // Apply the saved theme before first paint so there is no light/dark flash.
+      (function () {
+        try {
+          var pref = 'system';
+          var raw = localStorage.getItem('hexagon.v1');
+          if (raw) {
+            var t = (JSON.parse(raw).settings || {}).theme;
+            if (t === 'light' || t === 'dark') pref = t;
+          }
+          var dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', dark ? '#121816' : '#F4EFE4');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <!-- Shared rounded-hexagon clip-path (0..1 box) used by every hex-shaped element via clip-path: url(#hex-round) -->

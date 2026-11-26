@@ -83,11 +83,15 @@ export interface Friend {
   demo: true;
 }
 
+export type ThemePref = 'system' | 'light' | 'dark';
+
 export interface Settings {
   displayName: string;
   dailyGoalMin: number;
   weeklyGoalMin: number;
   pomodoro: PomodoroConfig;
+  /** Appearance. `system` follows the device. */
+  theme: ThemePref;
   keepAwake: boolean;
   sound: boolean;
   /** Short vibrations on key actions, where the browser supports them. */

@@ -46,6 +46,7 @@ function sanitizeSettings(v: unknown): Settings {
       longBreakMin: clamp(p.longBreakMin, 1, 90, d.pomodoro.longBreakMin),
       cyclesBeforeLong: Math.round(clamp(p.cyclesBeforeLong, 1, 10, d.pomodoro.cyclesBeforeLong)),
     },
+    theme: s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system',
     keepAwake: typeof s.keepAwake === 'boolean' ? s.keepAwake : d.keepAwake,
     sound: typeof s.sound === 'boolean' ? s.sound : d.sound,
     haptics: typeof s.haptics === 'boolean' ? s.haptics : d.haptics,

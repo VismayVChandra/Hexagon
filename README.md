@@ -51,6 +51,7 @@ version means writing one new adapter, then moving `persist()` to per-entity API
 | Installable PWA, offline app shell, iOS install hint, safe areas, reduced motion, keyboard and screen-reader support | Fully working |
 | Session-complete summary (goal reached, streak, milestones, week progress), live "today" progress while studying, animated rings and charts, calm breathing break screen | Fully working |
 | Vibration feedback on start, pause and finish | Android browsers only. iPhone browsers have no vibration API, and the setting says so. |
+| Light / Dark / System appearance, with a quick sun/moon toggle in the header | Fully working. The choice is applied before first paint, so there is no flash. |
 | Keep-screen-on during sessions | Works where the browser supports the Wake Lock API |
 | Friends, presence, shared focus rooms | **Demo only.** Simulated on the device from the clock. Nobody is connected. Labelled "Demo"/"Simulated" in the UI. |
 | First launch | Opens in **demo mode** with sample sessions, exams and simulated friends, flagged with a "Demo" strip. Browsing never changes anything. Your first real action (start a session, add a subject or exam, log a past session) clears the sample data and starts a fresh space. "Start fresh now" in the strip or "Remove demo data" in Settings does the same. |
