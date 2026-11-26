@@ -1,0 +1,21 @@
+{
+  "name": "Hexagon — Study Companion",
+  "short_name": "Hexagon",
+  "description": "A calm study space: start sessions fast, focus with friends, track progress and prepare for exams.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F4EFE4",
+  "theme_color": "#F4EFE4",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Start studying", "url": "./#/study", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
