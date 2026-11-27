@@ -252,7 +252,7 @@ export default function Home() {
             {rows.length > 0 && !live && <DemoBadge>Demo</DemoBadge>}
           </div>
           {rows.length === 0 ? (
-            <EmptyState title="Study is better together" body={live ? 'Add a friend’s code to see when they’re focusing. No chat, no rankings.' : 'Add a friend to see when they’re focusing — no chat, no rankings.'} action={<Link to="/friends" className="btn btn-secondary btn-sm">Go to Friends</Link>} />
+            <EmptyState title="Study is better together" body={live ? 'Type a friend’s code to see when they’re focusing. No chat, no rankings.' : 'Add a friend to see when they’re focusing — no chat, no rankings.'} action={<Link to="/friends" className="btn btn-secondary btn-sm">Go to Friends</Link>} />
           ) : studyingNow.length === 0 ? (
             <p className="muted">Nobody’s around right now. A quiet moment of your own.</p>
           ) : (

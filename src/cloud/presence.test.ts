@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FINISHED_WINDOW_MS, FRESH_MS, desiredPresence, effectiveSessionMs, effectiveState, formatFriendCode, isValidEmail, normalizeFriendCode } from './presence';
+import { FINISHED_WINDOW_MS, FRESH_MS, desiredPresence, effectiveSessionMs, effectiveState, formatFriendCode, normalizeFriendCode } from './presence';
 import { MIN } from '../lib/time';
 
 const NOW = Date.UTC(2026, 10, 27, 12, 0, 0);
@@ -59,26 +59,21 @@ describe('desiredPresence (privacy)', () => {
 });
 
 describe('friend codes', () => {
-  it('normalises pasted codes', () => {
-    expect(normalizeFriendCode('abcd-2345')).toBe('ABCD2345');
-    expect(normalizeFriendCode('  abcd 2345 ')).toBe('ABCD2345');
+  it('accepts 6 digits, ignoring spaces and dashes', () => {
+    expect(normalizeFriendCode('482913')).toBe('482913');
+    expect(normalizeFriendCode('482 913')).toBe('482913');
+    expect(normalizeFriendCode(' 482-913 ')).toBe('482913');
   });
-  it('rejects wrong length and ambiguous characters', () => {
-    expect(normalizeFriendCode('ABC')).toBeNull();
-    expect(normalizeFriendCode('ABCD234')).toBeNull();
-    expect(normalizeFriendCode('ABCD234I')).toBeNull();
-    expect(normalizeFriendCode('ABCD2340')).toBeNull();
+  it('rejects anything else', () => {
+    expect(normalizeFriendCode('48291')).toBeNull();
+    expect(normalizeFriendCode('4829133')).toBeNull();
+    expect(normalizeFriendCode('48291a')).toBeNull();
+    expect(normalizeFriendCode('')).toBeNull();
   });
-  it('formats for reading', () => {
-    expect(formatFriendCode('ABCD2345')).toBe('ABCD-2345');
+  it('keeps leading zeros', () => {
+    expect(normalizeFriendCode('004 219')).toBe('004219');
   });
-});
-
-describe('email check', () => {
-  it('accepts normal addresses and rejects junk', () => {
-    expect(isValidEmail('a@b.co')).toBe(true);
-    expect(isValidEmail('no-at-sign')).toBe(false);
-    expect(isValidEmail('a@b')).toBe(false);
-    expect(isValidEmail('a b@c.com')).toBe(false);
+  it('formats for reading aloud', () => {
+    expect(formatFriendCode('482913')).toBe('482 913');
   });
 });

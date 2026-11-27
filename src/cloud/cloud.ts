@@ -1,26 +1,29 @@
 import { useSyncExternalStore } from 'react';
 import { USE_MOCK, cloudConfigured } from './config';
-import { CloudError, type CloudBackend, type CloudProfile, type CloudUser, type FriendRequest, type RemoteFriend } from './types';
-import { HEARTBEAT_MS, desiredPresence, isValidEmail, normalizeFriendCode, type PresenceInputs } from './presence';
-import { takeAuthRedirect } from './authRedirect';
+import { CloudError, type CloudBackend, type CloudProfile, type RemoteFriend } from './types';
+import { HEARTBEAT_MS, desiredPresence, normalizeFriendCode, type PresenceInputs } from './presence';
 import { getState as getMain, subscribe as subscribeMain, updateSettings } from '../store/store';
+import { showToast } from '../hooks/hooks';
 import { computeView } from '../lib/timer';
 
-export type CloudPhase = 'off' | 'starting' | 'signed-out' | 'code-sent' | 'needs-name' | 'signed-in';
+/**
+ * Friends without email: the first time someone turns friends on, this device gets an anonymous account, they pick a
+ * name, and receive a 6-digit code. Typing a friend's code makes you friends instantly.
+ * The account lives in this browser. Clearing site data or switching phones gives a new account and a new code.
+ */
+export type CloudPhase = 'off' | 'starting' | 'signed-out' | 'needs-name' | 'signed-in';
 
 export interface CloudState {
   phase: CloudPhase;
-  email: string;
   profile: CloudProfile | null;
   friends: RemoteFriend[];
-  requests: FriendRequest[];
-  /** A message for the current step (sign-in errors etc.). */
+  /** A message for the current step. */
   error: string | null;
   busy: boolean;
   /** The last refresh failed (offline, server hiccup). Data shown may be stale. */
   syncError: boolean;
   lastSyncAt: number | null;
-  /** A friend code from an invite link, waiting for the person to sign in. */
+  /** A code from an invite link, waiting until friends is turned on. */
   pendingInvite: string | null;
 }
 
@@ -30,10 +33,8 @@ const POLL_MS = 20_000;
 
 let state: CloudState = {
   phase: cloudConfigured ? 'starting' : 'off',
-  email: '',
   profile: null,
   friends: [],
-  requests: [],
   error: null,
   busy: false,
   syncError: false,
@@ -74,7 +75,6 @@ export function setPendingInvite(code: string | null) {
 interface Cache {
   profile: CloudProfile;
   friends: RemoteFriend[];
-  requests: FriendRequest[];
 }
 function readCache(): Cache | null {
   try {
@@ -86,7 +86,7 @@ function readCache(): Cache | null {
 }
 function writeCache() {
   try {
-    if (state.profile) localStorage.setItem(CACHE_KEY, JSON.stringify({ profile: state.profile, friends: state.friends, requests: state.requests } satisfies Cache));
+    if (state.profile) localStorage.setItem(CACHE_KEY, JSON.stringify({ profile: state.profile, friends: state.friends } satisfies Cache));
   } catch {
     /* optional */
   }
@@ -117,51 +117,34 @@ function loadBackend(): Promise<CloudBackend> {
 
 const messageOf = (e: unknown) => (e instanceof CloudError ? e.message : e instanceof Error ? e.message : 'Something went wrong');
 
-// ---------- sign-in ----------
+// ---------- turning friends on ----------
 
 let started = false;
 
 export async function initCloud() {
   if (!cloudConfigured || started) return;
   started = true;
-  const redirect = takeAuthRedirect(); // set when the person arrived by clicking a link in the sign-in email
   try {
     const b = await loadBackend();
     b.onSignedOut(() => {
-      if (state.phase === 'signed-in') void handleSignedOut();
+      if (state.phase === 'signed-in') void handleAccountLost();
     });
-    let user: CloudUser | null;
-    if (redirect?.accessToken && redirect.refreshToken) {
-      try {
-        user = await b.setSession(redirect.accessToken, redirect.refreshToken);
-      } catch {
-        user = null;
-        redirect.error = 'That sign-in link didn’t work. Request a new code and type it in here instead.';
-      }
-    } else {
-      user = await b.getUser();
-    }
-    if (!user) return set({ phase: 'signed-out', error: redirect?.error ?? null });
-    set({ email: user.email });
-    await enterAccount(b, user);
+    const user = await b.getUser();
+    if (!user) return set({ phase: 'signed-out' });
+    const profile = await b.getProfile();
+    if (!profile) return set({ phase: 'needs-name' });
+    set({ phase: 'signed-in', profile });
+    startSync();
   } catch (e) {
     // Offline or the server is unreachable: fall back to what we last knew.
     const cache = readCache();
     if (cache) {
-      set({ phase: 'signed-in', profile: cache.profile, friends: cache.friends, requests: cache.requests, syncError: true });
+      set({ phase: 'signed-in', profile: cache.profile, friends: cache.friends, syncError: true });
       startSync();
     } else {
       set({ phase: 'signed-out', error: messageOf(e) });
     }
   }
-}
-
-async function enterAccount(b: CloudBackend, user: CloudUser) {
-  const profile = await b.getProfile();
-  set({ email: user.email });
-  if (!profile) return set({ phase: 'needs-name', error: null });
-  set({ phase: 'signed-in', profile, error: null });
-  startSync();
 }
 
 async function guarded(fn: () => Promise<void>) {
@@ -175,61 +158,28 @@ async function guarded(fn: () => Promise<void>) {
   }
 }
 
-export async function requestCode(emailRaw: string) {
-  const email = emailRaw.trim().toLowerCase();
-  if (!isValidEmail(email)) return set({ error: 'Enter a valid email address.' });
-  await guarded(async () => {
-    const b = await loadBackend();
-    await b.sendCode(email);
-    set({ phase: 'code-sent', email });
-  });
-}
-
-export async function submitCode(codeRaw: string) {
-  const code = codeRaw.replace(/\s+/g, '');
-  if (!/^\d{4,10}$/.test(code)) return set({ error: 'Enter the numeric code from the email.' });
-  await guarded(async () => {
-    const b = await loadBackend();
-    const user = await b.verifyCode(state.email, code);
-    await enterAccount(b, user);
-  });
-}
-
-export function backToEmail() {
-  set({ phase: 'signed-out', error: null });
-}
-
-export async function saveName(nameRaw: string) {
+/** First-time setup: create this device's account, set the name, get a code. */
+export async function enableFriends(nameRaw: string) {
   const name = nameRaw.trim();
   if (name.length < 1 || name.length > 30) return set({ error: 'Your name should be 1 to 30 characters.' });
   await guarded(async () => {
     const b = await loadBackend();
+    if (!(await b.getUser())) await b.signInAnonymously();
     const profile = await b.saveProfile(name);
     updateSettings({ displayName: name });
-    const wasSignedIn = state.phase === 'signed-in';
     set({ profile, phase: 'signed-in' });
-    if (!wasSignedIn) startSync();
     writeCache();
+    startSync();
   });
 }
 
-async function handleSignedOut(message?: string) {
+async function handleAccountLost(message?: string) {
   stopSync();
   clearCache();
-  set({ phase: 'signed-out', profile: null, friends: [], requests: [], email: '', syncError: false, error: message ?? null });
+  set({ phase: 'signed-out', profile: null, friends: [], syncError: false, error: message ?? null });
 }
 
-export async function signOut() {
-  await guarded(async () => {
-    const b = await loadBackend();
-    stopSync();
-    await b.clearPresence().catch(() => undefined);
-    await b.signOut();
-    clearCache();
-    set({ phase: 'signed-out', profile: null, friends: [], requests: [], email: '' });
-  });
-}
-
+/** Remove my profile, friendships and status from the server, and forget this device's account. */
 export async function deleteCloudData() {
   await guarded(async () => {
     const b = await loadBackend();
@@ -237,13 +187,16 @@ export async function deleteCloudData() {
     await b.deleteMyData();
     await b.signOut();
     clearCache();
-    set({ phase: 'signed-out', profile: null, friends: [], requests: [], email: '' });
+    set({ phase: 'signed-out', profile: null, friends: [] });
   });
 }
 
 // ---------- friends ----------
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; error: string };
+
+/** Friends I just added myself, so the "added you" notice doesn't fire for them. */
+const selfAdded = new Set<string>();
 
 async function act(fn: (b: CloudBackend) => Promise<ActionResult | void>): Promise<ActionResult> {
   try {
@@ -252,22 +205,46 @@ async function act(fn: (b: CloudBackend) => Promise<ActionResult | void>): Promi
     await refresh();
     return r ?? { ok: true };
   } catch (e) {
-    if (e instanceof CloudError && e.kind === 'auth') void handleSignedOut(e.message);
+    if (e instanceof CloudError && e.kind === 'auth') void handleAccountLost(e.message);
     return { ok: false, error: messageOf(e) };
   }
 }
 
 export function addFriendByCode(raw: string): Promise<ActionResult> {
   const code = normalizeFriendCode(raw);
-  if (!code) return Promise.resolve({ ok: false, error: 'Friend codes are 8 letters and numbers, like ABCD-2345.' });
-  if (code === state.profile?.friendCode) return Promise.resolve({ ok: false, error: 'That’s your own code.' });
+  if (!code) return Promise.resolve({ ok: false, error: 'Friend codes are 6 digits, like 482 913.' });
+  if (code === state.profile?.friendCode) return Promise.resolve({ ok: false, error: 'That’s your own code. Share it with a friend instead.' });
   return act(async (b) => {
-    const r = await b.sendRequest(code);
-    return { ok: true, message: r === 'accepted' ? 'You’re now friends.' : 'Request sent. They’ll see it next time they open Hexagon.' };
+    const r = await b.addFriendByCode(code);
+    switch (r.status) {
+      case 'added':
+        selfAdded.add(r.name);
+        return { ok: true, message: `You and ${r.name} are now friends.` };
+      case 'already':
+        return { ok: false, error: `You’re already friends with ${r.name}.` };
+      case 'self':
+        return { ok: false, error: 'That’s your own code. Share it with a friend instead.' };
+      case 'limited':
+        return { ok: false, error: 'Too many wrong codes. Please try again in an hour.' };
+      default:
+        return { ok: false, error: 'No one has that code. Check it with your friend, since codes can be replaced.' };
+    }
   });
 }
-export const respondToRequest = (id: string, accept: boolean) => act((b) => b.respond(id, accept));
+
 export const removeFriendship = (id: string) => act((b) => b.removeFriendship(id));
+
+export async function regenerateCode(): Promise<ActionResult> {
+  try {
+    const b = await loadBackend();
+    const friendCode = await b.regenerateCode();
+    if (state.profile) set({ profile: { ...state.profile, friendCode } });
+    writeCache();
+    return { ok: true, message: 'New code ready. The old one no longer works.' };
+  } catch (e) {
+    return { ok: false, error: messageOf(e) };
+  }
+}
 
 export async function renameSelf(nameRaw: string): Promise<ActionResult> {
   const name = nameRaw.trim();
@@ -288,11 +265,21 @@ export async function refresh() {
   const b = backendRef;
   if (!b || state.phase !== 'signed-in') return;
   try {
-    const [friends, requests] = await Promise.all([b.listFriends(), b.listRequests()]);
-    set({ friends, requests, syncError: false, lastSyncAt: Date.now() });
+    const friends = await b.listFriends();
+    // Tell the person when someone adds them using their code (not on the first load, not for friends they added).
+    if (state.lastSyncAt != null) {
+      const known = new Set(state.friends.map((f) => f.id));
+      for (const f of friends) {
+        if (!known.has(f.id)) {
+          if (selfAdded.has(f.name)) selfAdded.delete(f.name);
+          else showToast(`${f.name} added you as a friend.`);
+        }
+      }
+    }
+    set({ friends, syncError: false, lastSyncAt: Date.now() });
     writeCache();
   } catch (e) {
-    if (e instanceof CloudError && e.kind === 'auth') void handleSignedOut(e.message);
+    if (e instanceof CloudError && e.kind === 'auth') void handleAccountLost(e.message);
     else set({ syncError: true });
   }
 }
@@ -343,7 +330,7 @@ async function pushPresence(force: boolean) {
       presenceSet = true;
     }
   } catch (e) {
-    if (e instanceof CloudError && e.kind === 'auth') void handleSignedOut(e.message);
+    if (e instanceof CloudError && e.kind === 'auth') void handleAccountLost(e.message);
   }
 }
 

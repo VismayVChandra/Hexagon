@@ -2,18 +2,18 @@
 
 export interface CloudUser {
   id: string;
-  email: string;
 }
 
 export interface CloudProfile {
   id: string;
   displayName: string;
+  /** 6 digits. Whoever types this in becomes a friend. */
   friendCode: string;
   sharePresence: boolean;
   shareSubject: boolean;
 }
 
-/** An accepted friend, with presence only if they chose to share it. */
+/** A friend, with presence only if they chose to share it. */
 export interface RemoteFriend {
   friendshipId: string;
   id: string;
@@ -26,13 +26,6 @@ export interface RemoteFriend {
   updatedAt: string | null;
 }
 
-export interface FriendRequest {
-  id: string;
-  direction: 'incoming' | 'outgoing';
-  name: string;
-  createdAt: string;
-}
-
 export interface PresenceUpdate {
   state: 'online' | 'studying' | 'finished';
   subject: string | null;
@@ -40,31 +33,33 @@ export interface PresenceUpdate {
   roomId: string | null;
 }
 
+export type AddFriendResult = { status: 'added' | 'already'; name: string } | { status: 'not_found' | 'self' | 'limited' };
+
 /**
  * Everything the app needs from a server. Supabase is the real implementation;
  * a small in-memory mock exists for development. Errors are thrown as `CloudError`.
+ *
+ * There is no email or password: each device gets an anonymous account the first time friends are turned on.
  */
 export interface CloudBackend {
+  /** The anonymous account saved on this device, if any. */
   getUser(): Promise<CloudUser | null>;
-  /** Email a one-time sign-in code (and link) to the address. */
-  sendCode(email: string): Promise<void>;
-  verifyCode(email: string, code: string): Promise<CloudUser>;
+  /** Create the anonymous account for this device. */
+  signInAnonymously(): Promise<CloudUser>;
   signOut(): Promise<void>;
-  /** Sign in with tokens from an email link (fallback for people who click the link instead of typing the code). */
-  setSession(accessToken: string, refreshToken: string): Promise<CloudUser>;
-  /** Called when the session ends elsewhere (e.g. it expired). */
+  /** Called when the session ends elsewhere. */
   onSignedOut(cb: () => void): () => void;
 
   getProfile(): Promise<CloudProfile | null>;
-  /** Create the profile on first call, rename it afterwards. */
+  /** Create the profile (and its friend code) on first call, rename it afterwards. */
   saveProfile(displayName: string): Promise<CloudProfile>;
+  /** Replace my friend code. Existing friends stay. */
+  regenerateCode(): Promise<string>;
   setSharing(sharePresence: boolean, shareSubject: boolean): Promise<void>;
 
   listFriends(): Promise<RemoteFriend[]>;
-  listRequests(): Promise<FriendRequest[]>;
-  sendRequest(code: string): Promise<'sent' | 'accepted'>;
-  respond(requestId: string, accept: boolean): Promise<void>;
-  /** Remove a friend, cancel a request I sent, or decline one. */
+  /** Type in a friend's code. Friendship is immediate and mutual. */
+  addFriendByCode(code: string): Promise<AddFriendResult>;
   removeFriendship(id: string): Promise<void>;
 
   setPresence(p: PresenceUpdate): Promise<void>;

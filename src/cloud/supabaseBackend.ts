@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CLOUD_KEY, CLOUD_URL } from './config';
-import { CloudError, type CloudBackend, type CloudProfile, type CloudUser, type FriendRequest, type PresenceUpdate, type RemoteFriend } from './types';
+import { CloudError, type AddFriendResult, type CloudBackend, type CloudProfile, type CloudUser, type PresenceUpdate, type RemoteFriend } from './types';
 
 interface ProfileRow {
   id: string;
@@ -21,13 +21,14 @@ const toProfile = (r: ProfileRow): CloudProfile => ({
 /** Turn SDK/Postgres errors into short messages a student can act on. */
 function wrap(e: unknown): CloudError {
   if (e instanceof CloudError) return e;
-  const err = e as { message?: string; status?: number; code?: string; name?: string };
+  const err = e as { message?: string; status?: number; code?: string };
   const msg = err?.message ?? 'Something went wrong';
+  if (/anonymous sign-ins are disabled/i.test(msg)) return new CloudError('Friends isn’t switched on for this app yet. The app’s owner needs to enable anonymous sign-ins in Supabase.', 'server');
   if (err?.status === 429 || /rate limit|too many/i.test(msg)) return new CloudError('Too many attempts. Please wait a few minutes and try again.', 'rate-limit');
   if (/failed to fetch|network|load failed/i.test(msg)) return new CloudError('Can’t reach the server. Check your connection and try again.', 'network');
-  if (/invalid.*(token|otp)|expired|token has expired/i.test(msg)) return new CloudError('That code is wrong or has expired. Request a new one.', 'auth');
-  if (/not signed in|jwt|invalid claim/i.test(msg)) return new CloudError('You’ve been signed out. Please sign in again.', 'auth');
-  // Messages raised by our own SQL functions are already friendly (e.g. "No one has that friend code").
+  if (/not signed in|jwt|invalid claim|user from sub claim/i.test(msg)) return new CloudError('Your friends account was reset. Please turn friends on again.', 'auth');
+  if (/could not find the function|schema cache/i.test(msg)) return new CloudError('The friends database isn’t set up yet. The app’s owner needs to run the setup SQL in Supabase.', 'server');
+  // Messages raised by our own SQL functions are already friendly (e.g. "Name must be 1 to 30 characters").
   if (err?.code === 'P0001') return new CloudError(msg, 'validation');
   return new CloudError(msg, 'server');
 }
@@ -45,30 +46,16 @@ export async function createSupabaseBackend(): Promise<CloudBackend> {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
   });
 
-  const userOf = (u: { id: string; email?: string | null } | null | undefined): CloudUser | null => (u ? { id: u.id, email: u.email ?? '' } : null);
-
   return {
     async getUser() {
       const { data } = await sb.auth.getSession();
-      return userOf(data.session?.user);
+      return data.session ? { id: data.session.user.id } : null;
     },
-    async sendCode(email) {
-      const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+    async signInAnonymously() {
+      const { data, error } = await sb.auth.signInAnonymously();
       if (error) throw wrap(error);
-    },
-    async verifyCode(email, code) {
-      const { data, error } = await sb.auth.verifyOtp({ email, token: code.replace(/\s+/g, ''), type: 'email' });
-      if (error) throw wrap(error);
-      const u = userOf(data.user);
-      if (!u) throw new CloudError('Sign-in didn’t complete. Please try again.', 'auth');
-      return u;
-    },
-    async setSession(accessToken, refreshToken) {
-      const { data, error } = await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
-      if (error) throw wrap(error);
-      const u = userOf(data.user ?? data.session?.user);
-      if (!u) throw new CloudError('Sign-in didn’t complete. Please try again.', 'auth');
-      return u;
+      if (!data.user) throw new CloudError('Couldn’t set up friends. Please try again.', 'server');
+      return { id: data.user.id } satisfies CloudUser;
     },
     async signOut() {
       await sb.auth.signOut();
@@ -90,6 +77,9 @@ export async function createSupabaseBackend(): Promise<CloudBackend> {
     async saveProfile(displayName) {
       return toProfile(await run<ProfileRow>(sb.rpc('ensure_profile', { p_name: displayName })));
     },
+    async regenerateCode() {
+      return await run<string>(sb.rpc('regenerate_friend_code'));
+    },
     async setSharing(sharePresence, shareSubject) {
       await run(sb.rpc('set_sharing', { p_presence: sharePresence, p_subject: shareSubject }));
     },
@@ -109,15 +99,9 @@ export async function createSupabaseBackend(): Promise<CloudBackend> {
         updatedAt: r.updated_at,
       }));
     },
-    async listRequests() {
-      const rows = await run<{ id: string; direction: FriendRequest['direction']; display_name: string; created_at: string }[]>(sb.rpc('list_friend_requests'));
-      return (rows ?? []).map((r) => ({ id: r.id, direction: r.direction, name: r.display_name, createdAt: r.created_at }));
-    },
-    async sendRequest(code) {
-      return (await run<'sent' | 'accepted'>(sb.rpc('send_friend_request', { p_code: code })));
-    },
-    async respond(requestId, accept) {
-      await run(sb.rpc('respond_friend_request', { p_id: requestId, p_accept: accept }));
+    async addFriendByCode(code) {
+      const r = await run<{ status: AddFriendResult['status']; name?: string }>(sb.rpc('add_friend_by_code', { p_code: code }));
+      return (r.status === 'added' || r.status === 'already' ? { status: r.status, name: r.name ?? 'your friend' } : { status: r.status }) as AddFriendResult;
     },
     async removeFriendship(id) {
       await run(sb.rpc('remove_friendship', { p_id: id }));

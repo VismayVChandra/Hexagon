@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { addFriend, removeFriend, useStore, validateFriendName } from '../store/store';
 import { ROOMS } from '../data/friendsSim';
 import { showToast, useNow } from '../hooks/hooks';
-import { addFriendByCode, removeFriendship, respondToRequest, setPendingInvite, useCloud } from '../cloud/cloud';
+import { addFriendByCode, regenerateCode, removeFriendship, setPendingInvite, useCloud } from '../cloud/cloud';
 import { cloudConfigured } from '../cloud/config';
 import { formatFriendCode, normalizeFriendCode } from '../cloud/presence';
 import { useFriendRows } from '../cloud/useFriendRows';
@@ -27,6 +27,7 @@ export default function Friends() {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState(false);
 
   // An invite link looks like #/friends?code=ABCD2345. Keep the code until the person is signed in.
   const inviteParam = params.get('code');
@@ -89,7 +90,7 @@ export default function Friends() {
     const c = cloud.profile?.friendCode;
     if (!c) return;
     const url = `${location.origin}${location.pathname}#/friends?code=${c}`;
-    const text = `Add me on Hexagon. My friend code is ${formatFriendCode(c)}.`;
+    const text = `Add me on Hexagon! My friend code is ${formatFriendCode(c)}. Type it in under Friends.`;
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Study with me on Hexagon', text, url });
@@ -111,9 +112,6 @@ export default function Friends() {
     } else removeFriend(id);
   }
 
-  const incoming = cloud.requests.filter((r) => r.direction === 'incoming');
-  const outgoing = cloud.requests.filter((r) => r.direction === 'outgoing');
-
   return (
     <div className="page">
       <header className="page-head row row-split">
@@ -131,7 +129,7 @@ export default function Friends() {
           <Icon name="info" />
           <p>
             <strong>Demo mode.</strong> The friends and rooms below are simulated on this device from the clock. Nobody is actually connected, and nothing you do is shared.
-            {cloudConfigured ? ' Sign in below to add real friends.' : ' Real friends need an account service, which isn’t connected to this copy of the app.'}
+            {cloudConfigured ? ' Turn on friends below to add real ones.' : ' Real friends need an account service, which isn’t connected to this copy of the app.'}
           </p>
         </div>
       )}
@@ -141,7 +139,7 @@ export default function Friends() {
           <h2 id="real-h" className="card-title">
             Add real friends
           </h2>
-          <p className="muted small">Sign in with your email to swap friend codes. Your study data stays on your device. Only your name — and your status, if you turn that on — is visible to friends you accept.</p>
+          <p className="muted small">Get a 6-digit code to share. When a friend types it into their app, you’re friends. No email or password. Your study data stays on your device. Friends only see your name, and your status if you turn that on.</p>
           <CloudSignIn />
         </section>
       )}
@@ -162,7 +160,10 @@ export default function Friends() {
               <Icon name="share" size={16} /> Share invite
             </button>
           </div>
-          <p className="hint">Anyone with your code can send you a request. Nothing is shared until you accept.</p>
+          <p className="hint">Give this to a friend. When they type it into their app, you’re friends. Anyone who has it can add you, so if it gets around, replace it.</p>
+          <button type="button" className="link-btn" onClick={() => setReplacing(true)}>
+            Replace my code
+          </button>
         </section>
       )}
 
@@ -185,44 +186,6 @@ export default function Friends() {
         </p>
       </section>
 
-      {live && incoming.length > 0 && (
-        <section className="card" aria-labelledby="in-h">
-          <h2 id="in-h" className="card-title">
-            Friend requests
-          </h2>
-          <ul className="friend-list">
-            {incoming.map((r) => (
-              <li key={r.id}>
-                <div className="friend-main">
-                  <p className="item-title">{r.name}</p>
-                  <p className="muted small">wants to be friends</p>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={async () => {
-                    const res = await respondToRequest(r.id, true);
-                    showToast(res.ok ? `You and ${r.name} are friends.` : res.error, res.ok ? 'success' : 'error');
-                  }}
-                >
-                  Accept
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-quiet btn-sm"
-                  onClick={async () => {
-                    const res = await respondToRequest(r.id, false);
-                    if (!res.ok) showToast(res.error, 'error');
-                  }}
-                >
-                  Decline
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       <section className="card" aria-labelledby="list-h">
         <div className="card-head">
           <h2 id="list-h" className="card-title">
@@ -234,7 +197,7 @@ export default function Friends() {
         {rows.length === 0 ? (
           <EmptyState
             title="No friends yet"
-            body={live ? 'Share your friend code, or add a friend’s code, to see when they’re studying.' : 'Add a friend to try the experience. In this version they’re simulated.'}
+            body={live ? 'Share your code, or type a friend’s code, to see when they’re studying.' : 'Add a friend to try the experience. In this version they’re simulated.'}
             action={
               <button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}>
                 Add a friend
@@ -271,31 +234,6 @@ export default function Friends() {
               </li>
             ))}
           </ul>
-        )}
-        {live && outgoing.length > 0 && (
-          <div>
-            <p className="eyebrow">Waiting for them to accept</p>
-            <ul className="friend-list">
-              {outgoing.map((r) => (
-                <li key={r.id}>
-                  <div className="friend-main">
-                    <p className="item-title">{r.name}</p>
-                    <p className="muted small">Request sent</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-quiet btn-sm"
-                    onClick={async () => {
-                      const res = await removeFriendship(r.id);
-                      if (!res.ok) showToast(res.error, 'error');
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
         )}
         {rows.length > 0 && !live && (
           <Link to="/study" className="btn btn-quiet btn-block">
@@ -359,23 +297,23 @@ export default function Friends() {
       <Dialog open={adding} onClose={closeAdd} title="Add a friend">
         {live ? (
           <form onSubmit={submitCode} noValidate className="stack">
-            <p className="muted small">Ask your friend for their friend code (it’s on their Friends page) and enter it here. They’ll get a request to accept.</p>
+            <p className="muted small">Ask your friend for their 6-digit code (it’s at the top of their Friends page) and type it here. You’ll be friends straight away.</p>
             <Field label="Friend code" htmlFor="friend-code" error={error}>
-              <input id="friend-code" value={code} autoComplete="off" autoCapitalize="characters" spellCheck={false} maxLength={12} placeholder="ABCD-2345" aria-invalid={!!error} onChange={(e) => setCode(e.target.value)} data-autofocus />
+              <input id="friend-code" value={code} autoComplete="off" autoCapitalize="characters" spellCheck={false} maxLength={12} inputMode="numeric" placeholder="482 913" aria-invalid={!!error} onChange={(e) => setCode(e.target.value)} data-autofocus />
             </Field>
             <div className="dialog-actions">
               <button type="button" className="btn btn-quiet" onClick={closeAdd}>
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary" disabled={busy}>
-                {busy ? 'Sending…' : 'Send request'}
+                {busy ? 'Adding…' : 'Add friend'}
               </button>
             </div>
           </form>
         ) : (
           <form onSubmit={submitDemo} noValidate className="stack">
             <p className="muted small">
-              {cloudConfigured ? 'You’re not signed in, so this adds a ' : 'Hexagon can’t connect to real accounts yet, so this adds a '}
+              {cloudConfigured ? 'Friends isn’t turned on yet, so this adds a ' : 'Hexagon can’t connect to real accounts yet, so this adds a '}
               <strong>simulated</strong> study buddy to try the flow. They aren’t a real person and aren’t notified.
             </p>
             <Field label="Friend’s name" htmlFor="friend-name" error={error}>
@@ -394,9 +332,22 @@ export default function Friends() {
       </Dialog>
 
       <ConfirmDialog
+        open={replacing}
+        title="Replace your friend code?"
+        message="Your current code stops working straight away, so anyone who hasn’t used it yet will need the new one. Your existing friends stay friends."
+        confirmLabel="Replace code"
+        onConfirm={async () => {
+          setReplacing(false);
+          const r = await regenerateCode();
+          showToast(r.ok ? (r.message ?? 'New code ready.') : r.error, r.ok ? 'success' : 'error');
+        }}
+        onCancel={() => setReplacing(false)}
+      />
+
+      <ConfirmDialog
         open={!!removingRow}
         title={`Remove ${removingRow?.name ?? 'friend'}?`}
-        message={live ? 'You’ll stop seeing each other’s status. They aren’t notified.' : 'They’ll disappear from your list and from rooms.'}
+        message={live ? 'You’ll stop seeing each other’s status. They aren’t notified, and either of you can add the other again with a code.' : 'They’ll disappear from your list and from rooms.'}
         confirmLabel="Remove"
         danger
         onConfirm={() => void confirmRemove()}

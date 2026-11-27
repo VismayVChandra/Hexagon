@@ -58,18 +58,14 @@ export function desiredPresence(i: PresenceInputs): PresenceUpdate | null {
   return { state: 'online', subject: null, sessionMs: 0, roomId: null };
 }
 
-/** Friend codes are 8 characters from an alphabet without I, L, O, 0 or 1. */
-const CODE_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{8}$/;
-
-/** Tidy what a person typed or pasted. Returns null if it can't be a code. */
+/**
+ * Friend codes are 6 digits, like a ride-share OTP. Spaces and dashes are ignored so a pasted "482 913" works.
+ * Returns null if what was typed can't be a code.
+ */
 export function normalizeFriendCode(input: string): string | null {
-  const c = input.replace(/[\s-]+/g, '').toUpperCase();
-  return CODE_RE.test(c) ? c : null;
+  const digits = input.replace(/[\s-]+/g, '');
+  return /^\d{6}$/.test(digits) ? digits : null;
 }
 
-/** Shows a code as ABCD-EFGH for easier reading and dictation. */
-export const formatFriendCode = (code: string) => (code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code);
-
-export function isValidEmail(s: string): boolean {
-  return s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s);
-}
+/** Shows a code as 482 913 for easier reading aloud. */
+export const formatFriendCode = (code: string) => (code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code);

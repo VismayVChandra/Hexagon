@@ -1,20 +1,19 @@
 /**
- * DEVELOPMENT ONLY. An in-memory stand-in for the Supabase backend so the real-friends UI can be tried without a
+ * DEVELOPMENT ONLY. An in-memory stand-in for the Supabase backend so the friends UI can be tried without a
  * project: run `npm run dev` and open http://localhost:5173/?mockcloud=1. It is never included in production builds.
  *
- * Any email works. The sign-in code is always 123456.
- * Friend codes to try:  AVAX2345 (accepts after ~4 s)   BENX2345 (stays pending)   CHXE2345 (already asked you; shows under Requests)
+ * Friend codes to try:  482913 (Ava, studying)   715204 (Ben, online)   690138 (Chloe, finished)
+ * Eight wrong codes in a session trigger the rate limit.
  */
-import { CloudError, type CloudBackend, type CloudProfile, type CloudUser, type FriendRequest, type RemoteFriend } from './types';
+import { CloudError, type AddFriendResult, type CloudBackend, type CloudProfile, type CloudUser, type RemoteFriend } from './types';
 
 const KEY = 'hexagon.mockcloud';
 
-interface MockFriend {
+interface Person {
   friendshipId: string;
   id: string;
   name: string;
   code: string;
-  status: 'accepted' | 'pending-out' | 'pending-in';
   state: RemoteFriend['state'];
   subject: string | null;
   sessionMs: number;
@@ -23,13 +22,14 @@ interface MockFriend {
 interface Db {
   user: CloudUser | null;
   profile: CloudProfile | null;
-  friends: MockFriend[];
+  friendIds: string[];
+  wrongGuesses: number;
 }
 
-const people = (): MockFriend[] => [
-  { friendshipId: 'f-ava', id: 'u-ava', name: 'Ava', code: 'AVAX2345', status: 'pending-out', state: 'studying', subject: 'Organic chemistry', sessionMs: 41 * 60_000, roomId: 'quiet-library' },
-  { friendshipId: 'f-ben', id: 'u-ben', name: 'Ben', code: 'BENX2345', status: 'pending-out', state: 'online', subject: null, sessionMs: 0, roomId: null },
-  { friendshipId: 'f-chloe', id: 'u-chloe', name: 'Chloe', code: 'CHXE2345', status: 'pending-in', state: 'finished', subject: 'Statistics', sessionMs: 55 * 60_000, roomId: null },
+const PEOPLE: Person[] = [
+  { friendshipId: 'f-ava', id: 'u-ava', name: 'Ava', code: '482913', state: 'studying', subject: 'Organic chemistry', sessionMs: 41 * 60_000, roomId: 'quiet-library' },
+  { friendshipId: 'f-ben', id: 'u-ben', name: 'Ben', code: '715204', state: 'online', subject: null, sessionMs: 0, roomId: null },
+  { friendshipId: 'f-chloe', id: 'u-chloe', name: 'Chloe', code: '690138', state: 'finished', subject: 'Statistics', sessionMs: 55 * 60_000, roomId: null },
 ];
 
 function load(): Db {
@@ -39,16 +39,15 @@ function load(): Db {
   } catch {
     /* fall through */
   }
-  return { user: null, profile: null, friends: [] };
+  return { user: null, profile: null, friendIds: [], wrongGuesses: 0 };
 }
 const save = (db: Db) => localStorage.setItem(KEY, JSON.stringify(db));
 const wait = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 
 export function createMockBackend(): CloudBackend {
   let db = load();
-  const signedOutListeners = new Set<() => void>();
   const need = () => {
-    if (!db.user) throw new CloudError('You’ve been signed out. Please sign in again.', 'auth');
+    if (!db.user) throw new CloudError('Your friends account was reset. Please turn friends on again.', 'auth');
     return db.user;
   };
 
@@ -56,31 +55,18 @@ export function createMockBackend(): CloudBackend {
     async getUser() {
       return db.user;
     },
-    async sendCode() {
+    async signInAnonymously() {
       await wait();
-    },
-    async verifyCode(email, code) {
-      await wait();
-      if (code.replace(/\s/g, '') !== '123456') throw new CloudError('That code is wrong or has expired. Request a new one.', 'auth');
-      db.user = { id: 'u-me', email };
-      // A request from Chloe is waiting, so the Requests UI is visible straight away.
-      if (!db.friends.some((f) => f.id === 'u-chloe')) db.friends.push(people()[2]);
-      save(db);
-      return db.user;
-    },
-    async setSession() {
-      db.user = { id: 'u-me', email: 'link@example.com' };
+      db.user = { id: 'u-me' };
       save(db);
       return db.user;
     },
     async signOut() {
-      db = { user: null, profile: null, friends: [] };
+      db = { user: null, profile: null, friendIds: [], wrongGuesses: 0 };
       save(db);
-      signedOutListeners.forEach((cb) => cb());
     },
-    onSignedOut(cb) {
-      signedOutListeners.add(cb);
-      return () => signedOutListeners.delete(cb);
+    onSignedOut() {
+      return () => undefined;
     },
 
     async getProfile() {
@@ -91,11 +77,18 @@ export function createMockBackend(): CloudBackend {
     async saveProfile(displayName) {
       const u = need();
       await wait();
-      db.profile = db.profile
-        ? { ...db.profile, displayName }
-        : { id: u.id, displayName, friendCode: 'ME2X7K9P', sharePresence: false, shareSubject: false };
+      db.profile = db.profile ? { ...db.profile, displayName } : { id: u.id, displayName, friendCode: '207364', sharePresence: false, shareSubject: false };
       save(db);
       return db.profile;
+    },
+    async regenerateCode() {
+      need();
+      await wait();
+      if (!db.profile) throw new CloudError('Create your profile first', 'validation');
+      const code = String(100000 + Math.floor(Math.random() * 900000));
+      db.profile = { ...db.profile, friendCode: code };
+      save(db);
+      return code;
     },
     async setSharing(sharePresence, shareSubject) {
       need();
@@ -107,58 +100,39 @@ export function createMockBackend(): CloudBackend {
       need();
       await wait(150);
       const now = new Date().toISOString();
-      return db.friends
-        .filter((f) => f.status === 'accepted')
-        .map((f) => ({ friendshipId: f.friendshipId, id: f.id, name: f.name, state: f.state, subject: f.subject, sessionMs: f.sessionMs, roomId: f.roomId, updatedAt: now }));
+      return PEOPLE.filter((p) => db.friendIds.includes(p.id)).map((p) => ({
+        friendshipId: p.friendshipId,
+        id: p.id,
+        name: p.name,
+        state: p.state,
+        subject: p.subject,
+        sessionMs: p.sessionMs,
+        roomId: p.roomId,
+        updatedAt: now,
+      }));
     },
-    async listRequests() {
-      need();
-      await wait(120);
-      return db.friends
-        .filter((f) => f.status !== 'accepted')
-        .map<FriendRequest>((f) => ({ id: f.friendshipId, direction: f.status === 'pending-in' ? 'incoming' : 'outgoing', name: f.name, createdAt: new Date().toISOString() }));
-    },
-    async sendRequest(code) {
+    async addFriendByCode(code): Promise<AddFriendResult> {
       need();
       await wait();
-      if (!db.profile) throw new CloudError('Create your profile first', 'validation');
-      if (code === db.profile.friendCode) throw new CloudError('That is your own code', 'validation');
-      const person = people().find((p) => p.code === code);
-      if (!person) throw new CloudError('No one has that friend code', 'validation');
-      const existing = db.friends.find((f) => f.id === person.id);
-      if (existing?.status === 'accepted') throw new CloudError('You are already friends', 'validation');
-      if (existing?.status === 'pending-out') throw new CloudError('Request already sent', 'validation');
-      if (existing?.status === 'pending-in') {
-        existing.status = 'accepted';
+      const digits = code.replace(/\D/g, '');
+      if (db.wrongGuesses >= 8) return { status: 'limited' };
+      if (db.profile && digits === db.profile.friendCode) return { status: 'self' };
+      const person = PEOPLE.find((p) => p.code === digits);
+      if (!person) {
+        db.wrongGuesses++;
         save(db);
-        return 'accepted';
+        return { status: 'not_found' };
       }
-      db.friends.push({ ...person, status: person.code === 'CHXE2345' ? 'accepted' : 'pending-out' });
+      if (db.friendIds.includes(person.id)) return { status: 'already', name: person.name };
+      db.friendIds.push(person.id);
       save(db);
-      if (person.code === 'AVAX2345') {
-        setTimeout(() => {
-          const f = db.friends.find((x) => x.id === 'u-ava');
-          if (f && f.status === 'pending-out') {
-            f.status = 'accepted';
-            save(db);
-          }
-        }, 4000);
-      }
-      return person.code === 'CHXE2345' ? 'accepted' : 'sent';
-    },
-    async respond(requestId, accept) {
-      need();
-      await wait();
-      const f = db.friends.find((x) => x.friendshipId === requestId && x.status === 'pending-in');
-      if (!f) throw new CloudError('That request no longer exists', 'validation');
-      if (accept) f.status = 'accepted';
-      else db.friends = db.friends.filter((x) => x !== f);
-      save(db);
+      return { status: 'added', name: person.name };
     },
     async removeFriendship(id) {
       need();
       await wait(150);
-      db.friends = db.friends.filter((f) => f.friendshipId !== id);
+      const p = PEOPLE.find((x) => x.friendshipId === id);
+      if (p) db.friendIds = db.friendIds.filter((x) => x !== p.id);
       save(db);
     },
 
@@ -170,7 +144,7 @@ export function createMockBackend(): CloudBackend {
     },
     async deleteMyData() {
       need();
-      db = { user: db.user, profile: null, friends: [] };
+      db = { user: db.user, profile: null, friendIds: [], wrongGuesses: 0 };
       save(db);
     },
   };
