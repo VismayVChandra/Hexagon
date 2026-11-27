@@ -66,12 +66,12 @@ describe('scenes, garage and builds', () => {
   it('keeps valid garage items and build progress, and drops junk', () => {
     const d = JSON.parse(JSON.stringify(emptyData()));
     d.settings.scene = 'car';
-    d.garage = [{ carId: 'supercar', at: 5 }, { carId: 7 }, 'x'];
-    d.builds = { 'street-coupe': 120000, bad: -5, worse: 'lots' };
+    d.garage = [{ carId: 'porsche-911', at: 5 }, { carId: 7 }, 'x'];
+    d.builds = { 'toyota-corolla': 120000, bad: -5, worse: 'lots' };
     const parsed = parseAppData(d)!;
     expect(parsed.settings.scene).toBe('car');
-    expect(parsed.garage).toEqual([{ carId: 'supercar', at: 5 }]);
-    expect(parsed.builds).toEqual({ 'street-coupe': 120000 });
+    expect(parsed.garage).toEqual([{ carId: 'porsche-911', at: 5 }]);
+    expect(parsed.builds).toEqual({ 'toyota-corolla': 120000 });
   });
   it('rejects an unknown scene', () => {
     const d = JSON.parse(JSON.stringify(emptyData()));
@@ -86,5 +86,23 @@ describe('scenes, garage and builds', () => {
     const parsed = parseAppData(d)!;
     expect(parsed.garage).toEqual([]);
     expect(parsed.settings.scene).toBe('honeycomb');
+  });
+});
+
+describe('cars from the first garage', () => {
+  it('moves old car ids onto the new catalog, keeping progress and finished cars', () => {
+    const d = JSON.parse(JSON.stringify(emptyData()));
+    d.garage = [{ carId: 'street-coupe', at: 9 }];
+    d.builds = { 'mini-hatch': 600000, executive: 60000 };
+    d.active = { id: 'a', subjectId: 's', startedAt: 1, runMs: 0, resumedAt: 1, config: { mode: 'stopwatch' }, scene: 'car', carId: 'supercar' };
+    const parsed = parseAppData(d)!;
+    expect(parsed.garage).toEqual([{ carId: 'toyota-corolla', at: 9 }]);
+    expect(parsed.builds).toEqual({ 'maruti-alto': 600000, 'bmw-3-series': 60000 });
+    expect(parsed.active?.carId).toBe('bmw-m4');
+  });
+  it('does not duplicate a car that appears under both ids', () => {
+    const d = JSON.parse(JSON.stringify(emptyData()));
+    d.garage = [{ carId: 'street-coupe', at: 1 }, { carId: 'toyota-corolla', at: 2 }];
+    expect(parseAppData(d)!.garage).toHaveLength(1);
   });
 });

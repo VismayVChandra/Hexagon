@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { StudySession } from '../types';
 import { CELL_MS, COMB_CAPACITY, GOLDEN_SESSION_MS, RANKS, cellsFromMs, goldenDayKeys, hiveSummary, rankFor } from './hive';
 import { capacityFor, ringsFor, spiral } from './hexGeom';
-import { applyBuild, carById, currentPart, partStates, CARS, buildMs } from '../data/cars';
+import { applyBuild, carById, currentPart, partStates, CARS, TIERS, LEGACY_CAR_IDS, buildMs, carsInTier, darken } from '../data/cars';
 import { HOUR, MIN } from './time';
 
 function ses(minutes: number, over: Partial<StudySession> = {}): StudySession {
@@ -110,7 +110,7 @@ describe('car build', () => {
     expect(currentPart(0.9)?.id).toBe('paint');
   });
   it('carries progress across sessions, then moves the car to the garage once', () => {
-    const car = carById('street-coupe')!;
+    const car = carById('toyota-corolla')!;
     const first = applyBuild({}, [], car.id, 30 * MIN, 1000);
     expect(first.completed).toBeNull();
     expect(first.builds[car.id]).toBe(30 * MIN);
@@ -131,5 +131,34 @@ describe('car build', () => {
     const times = CARS.map(buildMs);
     expect(times).toEqual([...times].sort((a, b) => a - b));
     expect(CARS[0].buildMin).toBe(25);
+  });
+});
+
+describe('car catalog', () => {
+  it('has unique ids and a sensible set of brands', () => {
+    expect(new Set(CARS.map((c) => c.id)).size).toBe(CARS.length);
+    const brands = new Set(CARS.map((c) => c.brand));
+    expect(brands.size).toBe(10);
+    for (const b of ['BMW', 'Audi', 'Mercedes-Benz', 'Toyota', 'Porsche', 'Ferrari', 'Lamborghini', 'Rolls-Royce', 'Tesla', 'Maruti Suzuki']) expect(brands.has(b)).toBe(true);
+  });
+  it('fills every tier, and each car takes its tier’s build time', () => {
+    for (const t of TIERS) {
+      const cars = carsInTier(t.n);
+      expect(cars.length).toBeGreaterThanOrEqual(4);
+      expect(cars.every((c) => c.buildMin === t.buildMin)).toBe(true);
+    }
+    expect(TIERS.map((t) => t.buildMin)).toEqual([...TIERS.map((t) => t.buildMin)].sort((a, b) => a - b));
+  });
+  it('names cars as brand and model', () => {
+    expect(carById('bmw-x5')?.name).toBe('BMW X5');
+    expect(carById('lamborghini-huracan')?.brand).toBe('Lamborghini');
+  });
+  it('derives a darker shade for each colour', () => {
+    expect(darken('#ffffff', 0.5)).toBe('#808080');
+    expect(darken('#000000', 0.5)).toBe('#000000');
+    for (const c of CARS) expect(c.shade).toMatch(/^#[0-9a-f]{6}$/);
+  });
+  it('maps every old car id to a car that exists', () => {
+    for (const to of Object.values(LEGACY_CAR_IDS)) expect(carById(to)).toBeTruthy();
   });
 });

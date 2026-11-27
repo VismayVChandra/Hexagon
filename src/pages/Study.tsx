@@ -7,7 +7,7 @@ import { useFriendRows } from '../cloud/useFriendRows';
 import { haptic, primeAudio, useNow } from '../hooks/hooks';
 import { formatDuration, MIN } from '../lib/time';
 import type { PomodoroConfig, Scene, TimerMode } from '../types';
-import { CARS, buildMs } from '../data/cars';
+import { CARS, TIERS, buildMs, carById, carsInTier } from '../data/cars';
 import { CarArt } from '../components/CarArt';
 import { Bar, DemoBadge, Field, FriendAvatar, StateBadge, SubjectDot } from '../components/bits';
 import { Icon } from '../components/Icon';
@@ -52,8 +52,10 @@ export default function Study() {
   const collected = new Set(data.garage.map((g) => g.carId));
   const todo = CARS.filter((c) => !collected.has(c.id));
   const allCollected = todo.length === 0;
-  // Offer the car you've made the most progress on first.
-  const [carId, setCarId] = useState<string | undefined>(() => [...todo].sort((a, b) => (data.builds[b.id] ?? 0) / buildMs(b) - (data.builds[a.id] ?? 0) / buildMs(a))[0]?.id);
+  // Offer the car you've made the most progress on first, otherwise the cheapest one left.
+  const bestIn = (cars: typeof CARS) => [...cars].filter((c) => !collected.has(c.id)).sort((a, b) => (data.builds[b.id] ?? 0) / buildMs(b) - (data.builds[a.id] ?? 0) / buildMs(a) || a.tier - b.tier)[0];
+  const [carId, setCarId] = useState<string | undefined>(() => bestIn(CARS)?.id);
+  const [tier, setTier] = useState<number>(() => carById(bestIn(CARS)?.id)?.tier ?? 1);
   const [scene, setScene] = useState<Scene>(() => (data.settings.scene === 'car' && allCollected ? 'honeycomb' : data.settings.scene));
   const [addingSubject, setAddingSubject] = useState(data.subjects.length === 0);
   const [newSubject, setNewSubject] = useState('');
@@ -315,8 +317,33 @@ export default function Study() {
           {scene === 'car' && (
             <>
               <p className="muted small">Pick a car. The longer you focus, the more of it gets built: frame, wheels, suspension, engine, body, paint. Progress carries over between sessions, and finished cars go in your garage.</p>
+              <div role="radiogroup" aria-label="Car tier" className="tier-chips">
+                {TIERS.map((t) => {
+                  const inTier = carsInTier(t.n);
+                  const left = inTier.filter((c) => !collected.has(c.id)).length;
+                  return (
+                    <button
+                      key={t.n}
+                      type="button"
+                      role="radio"
+                      aria-checked={tier === t.n}
+                      className={`chip${tier === t.n ? ' is-on' : ''}`}
+                      onClick={() => {
+                        setTier(t.n);
+                        const pick = bestIn(inTier);
+                        if (pick) setCarId(pick.id);
+                        setErrors((e) => omit(e, 'car'));
+                      }}
+                    >
+                      {t.name} · {t.buildMin >= 60 ? `${t.buildMin / 60}h` : `${t.buildMin}m`}
+                      <span className="sr-only">, {left} left to build</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="muted small">{TIERS[tier - 1].blurb}</p>
               <div role="radiogroup" aria-label="Choose a car" className="car-picker">
-                {CARS.map((car) => {
+                {carsInTier(tier as 1 | 2 | 3 | 4 | 5).map((car) => {
                   const owned = collected.has(car.id);
                   const progress = owned ? 1 : Math.min(1, (data.builds[car.id] ?? 0) / buildMs(car));
                   const selected = carId === car.id;
@@ -335,14 +362,18 @@ export default function Study() {
                     >
                       <CarArt car={car} locked={!owned} label="" />
                       {!owned && progress > 0 && <Bar value={progress} label={`${car.name} build progress`} />}
-                      <span className="car-option-name">{car.name}</span>
-                      <small className="muted">
-                        {owned ? 'In your garage' : progress > 0 ? `${Math.floor(progress * 100)}% built · ${car.buildMin} min` : `${car.buildMin} min of focus`}
-                      </small>
+                      <small className="car-brand">{car.brand}</small>
+                      <span className="car-option-name">{car.model}</span>
+                      <small className="muted">{owned ? 'In your garage' : progress > 0 ? `${Math.floor(progress * 100)}% built` : 'Not started'}</small>
                     </button>
                   );
                 })}
               </div>
+              <p className="muted small">
+                <Link to="/garage" className="link-btn">
+                  See your whole garage
+                </Link>
+              </p>
               {errors.car && (
                 <p className="field-error" role="alert">
                   {errors.car}

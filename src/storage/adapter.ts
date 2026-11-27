@@ -1,5 +1,6 @@
 import type { ActiveSession, AppData, Exam, Friend, Settings, StudySession, Subject, TimerConfig } from '../types';
 import { DEFAULT_SETTINGS } from '../data/seed';
+import { migrateCarId } from '../data/cars';
 
 /**
  * Storage boundary. The app only talks to this interface, so swapping localStorage
@@ -94,7 +95,7 @@ function sanitizeActive(v: unknown): ActiveSession | null {
     friendIds: strArr(v.friendIds),
     roomId: isStr(v.roomId) ? v.roomId : undefined,
     scene: v.scene === 'car' || v.scene === 'minimal' || v.scene === 'honeycomb' ? v.scene : undefined,
-    carId: isStr(v.carId) ? v.carId : undefined,
+    carId: isStr(v.carId) ? migrateCarId(v.carId) : undefined,
   };
 }
 
@@ -120,7 +121,7 @@ export function parseAppData(raw: unknown): AppData | null {
       friendIds: strArr(x.friendIds),
       roomId: isStr(x.roomId) ? x.roomId : undefined,
       scene: x.scene === 'car' || x.scene === 'minimal' || x.scene === 'honeycomb' ? x.scene : undefined,
-      carId: isStr(x.carId) ? x.carId : undefined,
+      carId: isStr(x.carId) ? migrateCarId(x.carId) : undefined,
       manual: x.manual === true ? true : undefined,
       demo: x.demo === true ? true : undefined,
     }));
@@ -156,9 +157,10 @@ export function parseAppData(raw: unknown): AppData | null {
     });
   const garage = (Array.isArray(raw.garage) ? raw.garage : [])
     .filter((x): x is Record<string, unknown> => isObj(x) && isStr(x.carId) && isNum(x.at))
-    .map((x) => ({ carId: x.carId as string, at: x.at as number }));
+    .map((x) => ({ carId: migrateCarId(x.carId as string), at: x.at as number }))
+    .filter((g, i, all) => all.findIndex((o) => o.carId === g.carId) === i);
   const builds: Record<string, number> = {};
-  if (isObj(raw.builds)) for (const [k, v] of Object.entries(raw.builds)) if (isNum(v) && v > 0) builds[k] = v;
+  if (isObj(raw.builds)) for (const [k, v] of Object.entries(raw.builds)) if (isNum(v) && v > 0) builds[migrateCarId(k)] = (builds[migrateCarId(k)] ?? 0) + v;
   return { version: 1, settings: sanitizeSettings(raw.settings), subjects, sessions, exams, friends, active: sanitizeActive(raw.active), garage, builds };
 }
 

@@ -2501,3 +2501,22 @@ input:disabled {
     display: none;
   }
 }
+
+/* car tiers and brands */
+.tier-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tier-chips .chip {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+.car-brand {
+  font-size: 0.6875rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}

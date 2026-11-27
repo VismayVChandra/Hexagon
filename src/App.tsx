@@ -16,6 +16,7 @@ import Progress from './pages/Progress';
 import Friends from './pages/Friends';
 import Exams from './pages/Exams';
 import SettingsPage from './pages/Settings';
+import Garage from './pages/Garage';
 
 function Splash({ children }: { children?: React.ReactNode }) {
   return (
@@ -269,6 +270,7 @@ function Gate() {
         <Route path="friends" element={<Friends />} />
         <Route path="exams" element={<Exams />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="garage" element={<Garage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

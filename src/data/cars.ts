@@ -2,32 +2,121 @@ import { MIN } from '../lib/time';
 import type { GarageItem } from '../types';
 
 /**
- * The garage: cars you build by studying. Each car needs a set amount of focus time. Progress carries over between
- * sessions, so a car can be finished across several sittings. Names are generic on purpose (the artwork is a simple
- * illustration, not a replica of any real model); rename them freely.
+ * The garage: cars you build by studying. Each tier needs a set amount of focus time, and progress carries over
+ * between sessions, so a long build can be finished across several sittings.
+ *
+ * Brand and model names are shown as plain text only (no logos), and the artwork is a simple illustration of a body style
+ * (hatch, sedan, SUV, coupe, supercar, limousine) in a signature colour, not a replica of any real model.
  */
-export interface Car {
-  id: string;
+
+export type BodyStyle = 'hatch' | 'sedan' | 'suv' | 'coupe' | 'supercar' | 'limo';
+
+export interface Tier {
+  n: 1 | 2 | 3 | 4 | 5;
   name: string;
-  tier: number;
+  /** Focus time needed to finish a car in this tier. */
   buildMin: number;
-  /** Main body colour. */
-  color: string;
-  /** Darker shade for shading and trim. */
-  shade: string;
   blurb: string;
 }
 
+export const TIERS: Tier[] = [
+  { n: 1, name: 'Starter', buildMin: 25, blurb: 'Quick wins. One focus block.' },
+  { n: 2, name: 'Everyday icons', buildMin: 45, blurb: 'The cars everyone knows.' },
+  { n: 3, name: 'Premium', buildMin: 60, blurb: 'A solid hour of focus.' },
+  { n: 4, name: 'Performance', buildMin: 90, blurb: 'Power and presence.' },
+  { n: 5, name: 'Legends', buildMin: 180, blurb: 'Three hours for the dream cars.' },
+];
+
+export interface Car {
+  id: string;
+  brand: string;
+  model: string;
+  /** Brand and model, e.g. "BMW X5". */
+  name: string;
+  tier: Tier['n'];
+  buildMin: number;
+  style: BodyStyle;
+  /** Main body colour. */
+  color: string;
+  /** Darker shade for shading and trim (derived from `color`). */
+  shade: string;
+  /** Optional stripe colour for the sporty ones. */
+  accent?: string;
+}
+
+/** Darken a #rrggbb colour by `amount` (0..1). */
+export function darken(hex: string, amount: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (v: number) => Math.max(0, Math.round(v * (1 - amount)));
+  const r = f((n >> 16) & 255);
+  const g = f((n >> 8) & 255);
+  const b = f(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+function car(id: string, brand: string, model: string, tier: Tier['n'], style: BodyStyle, color: string, accent?: string): Car {
+  return { id, brand, model, name: `${brand} ${model}`, tier, buildMin: TIERS[tier - 1].buildMin, style, color, shade: darken(color, 0.3), accent };
+}
+
 export const CARS: Car[] = [
-  { id: 'mini-hatch', name: 'Mini Hatch', tier: 1, buildMin: 25, color: '#E4572E', shade: '#B8401F', blurb: 'Small, quick, and a first win.' },
-  { id: 'street-coupe', name: 'Street Coupe', tier: 2, buildMin: 45, color: '#2E86AB', shade: '#1F6485', blurb: 'Low and sporty.' },
-  { id: 'executive', name: 'Executive Sedan', tier: 3, buildMin: 60, color: '#6B7A8F', shade: '#4B586B', blurb: 'Comfort over a full hour.' },
-  { id: 'supercar', name: 'Supercar', tier: 4, buildMin: 90, color: '#F2B632', shade: '#C98F14', blurb: 'Built for speed. Worth the wait.' },
-  { id: 'grand-luxe', name: 'Grand Luxe', tier: 5, buildMin: 120, color: '#7B1E3A', shade: '#561327', blurb: 'The crown of the garage.' },
+  // Tier 1: Starter (25 min)
+  car('maruti-alto', 'Maruti Suzuki', 'Alto', 1, 'hatch', '#E5533D'),
+  car('maruti-swift', 'Maruti Suzuki', 'Swift', 1, 'hatch', '#F4B400'),
+  car('maruti-baleno', 'Maruti Suzuki', 'Baleno', 1, 'hatch', '#3A86C8'),
+  car('maruti-brezza', 'Maruti Suzuki', 'Brezza', 1, 'suv', '#7A8B99'),
+
+  // Tier 2: Everyday icons (45 min)
+  car('toyota-corolla', 'Toyota', 'Corolla', 2, 'sedan', '#B7BDC6'),
+  car('toyota-innova', 'Toyota', 'Innova', 2, 'suv', '#8A6E52'),
+  car('toyota-fortuner', 'Toyota', 'Fortuner', 2, 'suv', '#E9EBEF'),
+  car('tesla-model-3', 'Tesla', 'Model 3', 2, 'sedan', '#C5283D'),
+  car('audi-a3', 'Audi', 'A3', 2, 'hatch', '#6D7A8A'),
+  car('mercedes-a-class', 'Mercedes-Benz', 'A-Class', 2, 'hatch', '#2F3E55'),
+
+  // Tier 3: Premium (60 min)
+  car('bmw-x1', 'BMW', 'X1', 3, 'suv', '#1C69D4'),
+  car('bmw-x2', 'BMW', 'X2', 3, 'suv', '#F26B21'),
+  car('bmw-3-series', 'BMW', '3 Series', 3, 'sedan', '#262C36'),
+  car('audi-a4', 'Audi', 'A4', 3, 'sedan', '#B22A36'),
+  car('audi-q3', 'Audi', 'Q3', 3, 'suv', '#3F7D5C'),
+  car('mercedes-c-class', 'Mercedes-Benz', 'C-Class', 3, 'sedan', '#C9CED6'),
+  car('tesla-model-y', 'Tesla', 'Model Y', 3, 'suv', '#E5E7EB'),
+
+  // Tier 4: Performance (90 min)
+  car('bmw-x3', 'BMW', 'X3', 4, 'suv', '#0F4C81'),
+  car('bmw-x5', 'BMW', 'X5', 4, 'suv', '#3B2F2F'),
+  car('bmw-m4', 'BMW', 'M4', 4, 'coupe', '#1AA6B7', '#FFFFFF'),
+  car('audi-q7', 'Audi', 'Q7', 4, 'suv', '#2A2D33'),
+  car('mercedes-e-class', 'Mercedes-Benz', 'E-Class', 4, 'sedan', '#8D99AE'),
+  car('mercedes-gle', 'Mercedes-Benz', 'GLE', 4, 'suv', '#5C4B8A'),
+  car('porsche-macan', 'Porsche', 'Macan', 4, 'suv', '#C79A2B'),
+
+  // Tier 5: Legends (180 min)
+  car('porsche-911', 'Porsche', '911', 5, 'coupe', '#C1121F', '#FFFFFF'),
+  car('audi-r8', 'Audi', 'R8', 5, 'supercar', '#9B9EA6', '#C5283D'),
+  car('mercedes-amg-gt', 'Mercedes-Benz', 'AMG GT', 5, 'supercar', '#1D7F5A', '#FFFFFF'),
+  car('tesla-model-s', 'Tesla', 'Model S Plaid', 5, 'sedan', '#101418', '#C5283D'),
+  car('ferrari-f8', 'Ferrari', 'F8 Tributo', 5, 'supercar', '#D00000', '#FFE600'),
+  car('lamborghini-huracan', 'Lamborghini', 'Huracán', 5, 'supercar', '#6BC21F', '#101418'),
+  car('lamborghini-urus', 'Lamborghini', 'Urus', 5, 'suv', '#F5A300', '#101418'),
+  car('rolls-royce-ghost', 'Rolls-Royce', 'Ghost', 5, 'limo', '#E9E4D8'),
+  car('rolls-royce-phantom', 'Rolls-Royce', 'Phantom', 5, 'limo', '#1B1F3B'),
 ];
 
 export const carById = (id: string | undefined) => CARS.find((c) => c.id === id);
 export const buildMs = (car: Car) => car.buildMin * MIN;
+export const carsInTier = (n: Tier['n']) => CARS.filter((c) => c.tier === n);
+export const tierOf = (car: Car) => TIERS[car.tier - 1];
+
+/** Cars from the first version of the garage, so anyone who already built one keeps it. */
+export const LEGACY_CAR_IDS: Record<string, string> = {
+  'mini-hatch': 'maruti-alto',
+  'street-coupe': 'toyota-corolla',
+  executive: 'bmw-3-series',
+  supercar: 'bmw-m4',
+  'grand-luxe': 'rolls-royce-ghost',
+};
+export const migrateCarId = (id: string) => LEGACY_CAR_IDS[id] ?? id;
 
 /** The parts of a car, in the order they are fitted. */
 export const PARTS = [

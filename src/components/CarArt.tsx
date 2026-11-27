@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { PARTS, currentPart, partStates, type Car } from '../data/cars';
+import { PARTS, currentPart, partStates, type BodyStyle, type Car } from '../data/cars';
 import { roundedHexPath } from '../lib/hexGeom';
 
 /** Side-view outlines per car (viewBox 200x100, facing right, wheels at x=50 and x=150). */
@@ -10,22 +10,24 @@ interface Shape {
   tail: [number, number];
   spoiler?: boolean;
   chrome?: boolean;
+  /** Roof rails (SUVs). */
+  rails?: boolean;
 }
 
-const SHAPES: Record<string, Shape> = {
-  'mini-hatch': {
+const SHAPES: Record<BodyStyle, Shape> = {
+  hatch: {
     body: 'M26 72 L26 60 Q26 52 34 50 L58 46 Q70 30 92 30 L120 30 Q134 32 142 46 L168 50 Q176 52 176 62 L176 72 Z',
     windows: 'M64 46 Q74 35 92 34 L118 34 Q128 36 134 46 Z',
     head: [174, 58],
     tail: [28, 58],
   },
-  'street-coupe': {
+  coupe: {
     body: 'M18 72 L18 62 Q20 54 34 52 L70 46 Q86 30 112 30 L128 32 Q146 36 156 48 L184 54 Q190 58 190 64 L190 72 Z',
     windows: 'M80 46 Q92 35 112 34 L126 36 Q138 40 146 48 Z',
     head: [188, 62],
     tail: [20, 62],
   },
-  executive: {
+  sedan: {
     body: 'M14 72 L14 60 Q16 52 30 50 L58 46 Q70 32 92 32 L128 32 Q144 34 150 46 L176 48 L186 52 Q192 56 192 64 L192 72 Z',
     windows: 'M64 46 Q74 36 92 36 L104 36 L104 46 Z M110 36 L128 36 Q138 38 144 46 L110 46 Z',
     head: [190, 60],
@@ -38,7 +40,14 @@ const SHAPES: Record<string, Shape> = {
     tail: [16, 66],
     spoiler: true,
   },
-  'grand-luxe': {
+  suv: {
+    body: 'M20 72 L20 56 Q20 46 30 44 L52 40 Q60 24 82 24 L132 24 Q146 26 152 40 L172 44 Q182 48 182 58 L182 72 Z',
+    windows: 'M58 40 Q64 28 82 28 L98 28 L98 40 Z M104 28 L130 28 Q142 30 147 40 L104 40 Z',
+    head: [180, 56],
+    tail: [22, 56],
+    rails: true,
+  },
+  limo: {
     body: 'M12 72 L12 58 Q14 50 28 48 L56 44 Q66 28 88 28 L132 28 Q150 30 156 44 L182 46 Q194 50 194 60 L194 72 Z',
     windows: 'M60 44 Q68 32 86 32 L96 32 L96 44 Z M102 32 L130 32 Q142 34 148 44 L102 44 Z',
     head: [192, 56],
@@ -67,7 +76,7 @@ interface CarArtProps {
 /** A car drawn in layers (frame, wheels, suspension, engine, body, paint) that appear as `progress` grows. */
 export function CarArt({ car, progress = 1, locked = false, spinning = false, shine = false, label, className }: CarArtProps) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
-  const shape = SHAPES[car.id] ?? SHAPES['mini-hatch'];
+  const shape = SHAPES[car.style] ?? SHAPES.hatch;
   const parts = Object.fromEntries(partStates(progress).map((p) => [p.id, p.amount])) as Record<(typeof PARTS)[number]['id'], number>;
   // Each part drops into place and fades in as its slice of the build is completed.
   const layer = (amount: number) => ({ opacity: amount, transform: `translateY(${(1 - amount) * -18}px)` });
@@ -153,6 +162,8 @@ export function CarArt({ car, progress = 1, locked = false, spinning = false, sh
         <ellipse cx={shape.tail[0]} cy={shape.tail[1]} rx="2.4" ry="2.6" fill="#e5483a" />
         <path d={`M${shape.tail[0] + 40} 60 L${shape.tail[0] + 40} 70`} stroke={car.shade} strokeWidth="1.2" opacity="0.6" />
         <path d="M70 41 Q96 33 118 38" stroke="#fff" strokeWidth="2" fill="none" opacity="0.25" strokeLinecap="round" />
+        {car.accent && <path d={`M${shape.tail[0] + 8} ${shape.tail[1] + 3} L${shape.head[0] - 8} ${shape.head[1] + 3}`} stroke={car.accent} strokeWidth="2.4" strokeLinecap="round" opacity="0.95" />}
+        {shape.rails && <path d="M62 23 L134 23" stroke={car.shade} strokeWidth="2.2" strokeLinecap="round" />}
         {shape.spoiler && (
           <g fill={car.shade}>
             <rect x="12" y="52" width="26" height="4" rx="1.5" />
