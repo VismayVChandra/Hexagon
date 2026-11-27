@@ -2520,3 +2520,46 @@ input:disabled {
   color: var(--muted);
   font-weight: 700;
 }
+
+/* real car photos */
+.car-photo {
+  display: block;
+  width: 100%;
+  height: auto; /* the height attribute is only there to reserve space; the aspect ratio sets the shape */
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 12px;
+  background: var(--surface-2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--honey) 40%, transparent), 0 6px 16px -8px rgba(0, 0, 0, 0.5);
+}
+.summary-car {
+  max-height: 220px;
+}
+.credits ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+.credits a {
+  color: var(--primary);
+}
+.credits summary {
+  cursor: pointer;
+  min-height: 32px;
+}
+
+/* A car you've built gets a full-width photo; the ones still to build stay as small outlines around it. */
+.garage-grid {
+  grid-auto-flow: dense;
+}
+.garage-grid li.is-owned {
+  grid-column: 1 / -1;
+  padding: 10px 10px 12px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--honey) 14%, var(--surface-2)), var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--honey) 35%, var(--line));
+}
+.garage-grid li.is-owned .car-option-name {
+  font-size: 1.1rem;
+}

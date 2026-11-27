@@ -9,6 +9,7 @@ import { formatDuration, MIN } from '../lib/time';
 import type { PomodoroConfig, Scene, TimerMode } from '../types';
 import { CARS, TIERS, buildMs, carById, carsInTier } from '../data/cars';
 import { CarArt } from '../components/CarArt';
+import { CarPhoto } from '../components/CarPhoto';
 import { Bar, DemoBadge, Field, FriendAvatar, StateBadge, SubjectDot } from '../components/bits';
 import { Icon } from '../components/Icon';
 
@@ -360,7 +361,7 @@ export default function Study() {
                         setErrors((e) => omit(e, 'car'));
                       }}
                     >
-                      <CarArt car={car} locked={!owned} label="" />
+                      {owned ? <CarPhoto car={car} /> : <CarArt car={car} locked label="" />}
                       {!owned && progress > 0 && <Bar value={progress} label={`${car.name} build progress`} />}
                       <small className="car-brand">{car.brand}</small>
                       <span className="car-option-name">{car.model}</span>

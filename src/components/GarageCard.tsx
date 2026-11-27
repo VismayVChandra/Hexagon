@@ -3,6 +3,7 @@ import type { GarageItem } from '../types';
 import { CARS, buildMs, carById, type Car } from '../data/cars';
 import { Bar } from './bits';
 import { CarArt } from './CarArt';
+import { CarPhoto } from './CarPhoto';
 
 /** A short look at your garage: the cars you built most recently and the one you're working on. */
 export function GarageCard({ garage, builds }: { garage: GarageItem[]; builds: Record<string, number> }) {
@@ -32,7 +33,7 @@ export function GarageCard({ garage, builds }: { garage: GarageItem[]; builds: R
             const progress = has ? 1 : Math.min(1, (builds[car.id] ?? 0) / buildMs(car));
             return (
               <li key={car.id} className={has ? 'is-owned' : ''}>
-                <CarArt car={car} locked={!has} label={has ? `${car.name}, built` : `${car.name}, ${Math.floor(progress * 100)}% built`} />
+                {has ? <CarPhoto car={car} /> : <CarArt car={car} locked label={`${car.name}, ${Math.floor(progress * 100)}% built`} />}
                 {!has && progress > 0 && <Bar value={progress} label={`${car.name} build progress`} />}
                 <small className="car-brand">{car.brand}</small>
                 <span className="car-option-name">{car.model}</span>

@@ -4,6 +4,8 @@ import { STREAK_MILESTONES } from '../lib/stats';
 import { MIN, formatDuration } from '../lib/time';
 import { Bar, SubjectDot, subjectColor } from './bits';
 import { Icon } from './Icon';
+import { CarPhoto } from './CarPhoto';
+import { carById } from '../data/cars';
 
 /** Shown once on Home right after a session is saved. */
 export function SummaryCard({ summary, subject, onDismiss }: { summary: SessionSummary; subject?: Subject; onDismiss: () => void }) {
@@ -44,6 +46,8 @@ export function SummaryCard({ summary, subject, onDismiss }: { summary: SessionS
           of <SubjectDot subject={subject} size={10} /> {subject?.name ?? 'study'}
         </span>
       </p>
+
+      {summary.car?.completed && carById(summary.car.id) && <CarPhoto car={carById(summary.car.id)!} className="summary-car" />}
 
       {wins.length > 0 && (
         <ul className="wins">

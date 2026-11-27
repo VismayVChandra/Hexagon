@@ -3,6 +3,8 @@ import { CARS, TIERS, buildMs, carsInTier } from '../data/cars';
 import { useStore } from '../store/store';
 import { Bar } from '../components/bits';
 import { CarArt } from '../components/CarArt';
+import { CarPhoto } from '../components/CarPhoto';
+import { CAR_PHOTOS } from '../data/carPhotos';
 
 /** Every car you can build, grouped by tier. Finished cars are in colour; the rest are outlines with their progress. */
 export default function Garage() {
@@ -37,7 +39,7 @@ export default function Garage() {
                 const progress = has ? 1 : Math.min(1, (data.builds[car.id] ?? 0) / buildMs(car));
                 return (
                   <li key={car.id} className={has ? 'is-owned' : ''}>
-                    <CarArt car={car} locked={!has} label={has ? `${car.name}, built` : `${car.name}, ${Math.floor(progress * 100)}% built`} />
+                    {has ? <CarPhoto car={car} /> : <CarArt car={car} locked label={`${car.name}, ${Math.floor(progress * 100)}% built`} />}
                     {!has && progress > 0 && <Bar value={progress} label={`${car.name} build progress`} />}
                     <small className="car-brand">{car.brand}</small>
                     <span className="car-option-name">{car.model}</span>
@@ -53,6 +55,31 @@ export default function Garage() {
       <Link to="/study" className="btn btn-primary">
         Start a build
       </Link>
+
+      <details className="card credits">
+        <summary className="card-title">Photo credits</summary>
+        <p className="muted small">
+          Photos of built cars come from Wikimedia Commons and are used under their free licences. They were resized and compressed for the app. Brand and model names belong to their owners.
+        </p>
+        <ul>
+          {CARS.map((car) => {
+            const ph = CAR_PHOTOS[car.id];
+            if (!ph) return null;
+            return (
+              <li key={car.id}>
+                <strong>{car.name}</strong>: <a href={ph.page} target="_blank" rel="noreferrer noopener">photo</a> by {ph.author},{' '}
+                {ph.licenseUrl ? (
+                  <a href={ph.licenseUrl} target="_blank" rel="noreferrer noopener">
+                    {ph.license}
+                  </a>
+                ) : (
+                  ph.license
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </details>
     </div>
   );
 }
