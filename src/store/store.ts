@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { ActiveSession, AppData, Exam, Friend, Scene, SessionSummary, Settings, StudySession, Subject, TimerConfig } from '../types';
+import type { ActiveSession, AppData, Exam, FocusRating, Friend, PlanTask, Scene, SessionSummary, Settings, StudySession, Subject, TimerConfig } from '../types';
 import { LocalStorageAdapter, MemoryAdapter, STORAGE_KEY, StorageError, parseAppData, type StudyStorage } from '../storage/adapter';
 import { createSeed, emptyData, SUBJECT_COLORS } from '../data/seed';
 import { makeSimFriend } from '../data/friendsSim';
@@ -206,6 +206,23 @@ export interface StartParams {
   config: TimerConfig;
   friendIds: string[];
   roomId?: string;
+  /** What the student plans to get done (each line becomes a tick-off task). */
+  tasks?: string[];
+}
+
+/** Turns typed lines into tasks: trimmed, no blanks, no duplicates, at most 12. */
+export function makeTasks(lines: string[] | undefined): PlanTask[] | undefined {
+  const seen = new Set<string>();
+  const out: PlanTask[] = [];
+  for (const line of lines ?? []) {
+    const text = line.trim().slice(0, 100);
+    const key = text.toLowerCase();
+    if (!text || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ id: uid('tsk'), text, done: false });
+    if (out.length >= 12) break;
+  }
+  return out.length ? out : undefined;
 }
 
 export function startSession(p: StartParams, now = Date.now()): Result<ActiveSession> {
@@ -225,6 +242,7 @@ export function startSession(p: StartParams, now = Date.now()): Result<ActiveSes
     roomId: p.roomId,
     scene: p.scene ?? state.data.settings.scene,
     carId: p.scene === 'car' ? p.carId : undefined,
+    tasks: makeTasks(p.tasks),
   };
   mutateLeavingDemo((d) => ({ ...d, active, settings: { ...d.settings, lastSubjectId: p.subjectId, scene: active.scene ?? d.settings.scene } }), p.friendIds);
   analytics.track('session_start');
@@ -243,6 +261,30 @@ export const resumeActive = (now = Date.now()) => mutateActive((a) => resume(a, 
 export const skipActiveBreak = (now = Date.now()) => mutateActive((a) => skipBreak(a, now));
 export const extendActive = (min: number, now = Date.now()) => mutateActive((a) => extendCountdown(a, min, now));
 
+/** Adds a task to the session in progress. Returns false when it is blank, a repeat, or the plan is full. */
+export function addActiveTask(text: string): boolean {
+  const a = state.data.active;
+  if (!a) return false;
+  const next = makeTasks([...(a.tasks ?? []).map((t) => t.text), text]);
+  if (!next || next.length === (a.tasks?.length ?? 0)) return false;
+  // keep the existing tasks (and their ticks), appending only the new one
+  const added = next[next.length - 1];
+  mutate((d) => (d.active ? { ...d, active: { ...d.active, tasks: [...(d.active.tasks ?? []), added] } } : d));
+  return true;
+}
+
+export function toggleActiveTask(id: string) {
+  mutate((d) => (d.active?.tasks ? { ...d, active: { ...d.active, tasks: d.active.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)) } } : d));
+}
+
+export function removeActiveTask(id: string) {
+  mutate((d) => {
+    if (!d.active?.tasks) return d;
+    const tasks = d.active.tasks.filter((t) => t.id !== id);
+    return { ...d, active: { ...d.active, tasks: tasks.length ? tasks : undefined } };
+  });
+}
+
 export function heartbeat(now = Date.now()) {
   const a = state.data.active;
   if (!a || a.resumedAt == null) return;
@@ -260,7 +302,7 @@ export function resolveAway(choice: 'keep' | 'stop', now = Date.now()) {
   set({ away: null });
 }
 
-export function finishSession(notes: string, now = Date.now()): Result<StudySession> {
+export function finishSession(notes: string, focus?: FocusRating, now = Date.now()): Result<StudySession> {
   const a = state.data.active;
   if (!a) return { ok: false, error: 'There is no session to save.' };
   const v = computeView(a, now);
@@ -279,6 +321,8 @@ export function finishSession(notes: string, now = Date.now()): Result<StudySess
     roomId: a.roomId,
     scene: a.scene,
     carId: a.scene === 'car' ? a.carId : undefined,
+    tasks: a.tasks,
+    focus,
   };
   const before = state.data.sessions;
   const after = [...before, session];
@@ -314,6 +358,7 @@ export function finishSession(notes: string, now = Date.now()): Result<StudySess
     rankUp: rankAfter.id !== rankBefore.id ? { from: rankBefore.name, to: rankAfter.name } : undefined,
     goldenEarned,
     car: car ? { id: car.id, name: car.name, completed: !!built.completed, progress: carProgress } : undefined,
+    tasks: a.tasks ? { done: a.tasks.filter((t) => t.done).length, total: a.tasks.length } : undefined,
   };
   mutate((d) => ({ ...d, sessions: after, active: null, builds: built.builds, garage: built.garage }));
   // Anonymous counts: only sessions of a minute or more count as "finished".

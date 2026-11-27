@@ -3,6 +3,19 @@ export type TimerMode = 'stopwatch' | 'countdown' | 'pomodoro';
 /** What plays while the timer runs: the honeycomb (default), a car being built, or just a ring. */
 export type Scene = 'honeycomb' | 'car' | 'minimal';
 
+/** A background sound that can play during a session. */
+export type AmbientSound = 'off' | 'rain' | 'brown' | 'waves';
+
+/** One line of a session's plan: something to get done before finishing. */
+export interface PlanTask {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+/** How focused the student felt, 1 (scattered) to 5 (locked in). */
+export type FocusRating = 1 | 2 | 3 | 4 | 5;
+
 /** A car the student has finished building. */
 export interface GarageItem {
   carId: string;
@@ -52,6 +65,10 @@ export interface StudySession {
   /** Logged by hand rather than timed. */
   manual?: boolean;
   demo?: boolean;
+  /** The plan the student made for this session, with what got ticked off. */
+  tasks?: PlanTask[];
+  /** How focused it felt, if the student said. */
+  focus?: FocusRating;
 }
 
 export interface ActiveSession {
@@ -72,6 +89,8 @@ export interface ActiveSession {
   scene?: Scene;
   /** The car being built, when scene is 'car'. */
   carId?: string;
+  /** What the student plans to get done; ticked off during the session. */
+  tasks?: PlanTask[];
 }
 
 export interface Exam {
@@ -110,6 +129,10 @@ export interface Settings {
   scene: Scene;
   keepAwake: boolean;
   sound: boolean;
+  /** Background sound while studying (rain, brown noise, waves). Generated on the device, so it works offline. */
+  ambient: AmbientSound;
+  /** Background sound volume, 0 to 1. */
+  ambientVolume: number;
   /** Short vibrations on key actions, where the browser supports them. */
   haptics: boolean;
   /** Privacy: appear to friends as "studying" while in a session. Off by default. */
@@ -162,4 +185,6 @@ export interface SessionSummary {
   /** This session earned today's golden cell. */
   goldenEarned: boolean;
   car?: { id: string; name: string; completed: boolean; progress: number };
+  /** The session's plan, if it had one. */
+  tasks?: { done: number; total: number };
 }

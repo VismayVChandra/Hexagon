@@ -9,6 +9,7 @@ import { computeView } from './lib/timer';
 import { formatClock, formatTimeOfDay } from './lib/time';
 import { Icon, Logo } from './components/Icon';
 import { Dialog } from './components/Dialog';
+import { AmbientHost } from './components/AmbientHost';
 import { SubjectDot } from './components/bits';
 import Home from './pages/Home';
 import Study from './pages/Study';
@@ -200,6 +201,7 @@ function Shell() {
       </main>
 
       <ResumeBar />
+      <AmbientHost />
       <ToastHost />
 
       <Dialog open={!!away} onClose={() => resolveAway('keep')} title="Welcome back" small dismissible={false}>

@@ -1,4 +1,4 @@
-import type { ActiveSession, AppData, Exam, Friend, Settings, StudySession, Subject, TimerConfig } from '../types';
+import type { ActiveSession, AppData, Exam, FocusRating, Friend, PlanTask, Settings, StudySession, Subject, TimerConfig } from '../types';
 import { DEFAULT_SETTINGS } from '../data/seed';
 import { migrateCarId } from '../data/cars';
 
@@ -51,6 +51,8 @@ function sanitizeSettings(v: unknown): Settings {
     scene: s.scene === 'car' || s.scene === 'minimal' ? s.scene : 'honeycomb',
     keepAwake: typeof s.keepAwake === 'boolean' ? s.keepAwake : d.keepAwake,
     sound: typeof s.sound === 'boolean' ? s.sound : d.sound,
+    ambient: s.ambient === 'rain' || s.ambient === 'brown' || s.ambient === 'waves' ? s.ambient : 'off',
+    ambientVolume: clamp(s.ambientVolume, 0, 1, d.ambientVolume),
     haptics: typeof s.haptics === 'boolean' ? s.haptics : d.haptics,
     sharePresence: typeof s.sharePresence === 'boolean' ? s.sharePresence : false,
     shareSubject: typeof s.shareSubject === 'boolean' ? s.shareSubject : false,
@@ -80,6 +82,22 @@ function sanitizeConfig(v: unknown): TimerConfig | null {
 
 const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.filter(isStr) : []);
 
+/** A plan: up to 12 short tasks. Anything malformed is dropped; no plan at all stays undefined. */
+export function sanitizeTasks(v: unknown): PlanTask[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: PlanTask[] = [];
+  for (const x of v) {
+    if (!isObj(x) || !isStr(x.id) || !isStr(x.text)) continue;
+    const text = x.text.trim().slice(0, 100);
+    if (!text || out.some((t) => t.id === x.id)) continue;
+    out.push({ id: x.id, text, done: x.done === true });
+    if (out.length >= 12) break;
+  }
+  return out.length ? out : undefined;
+}
+
+const sanitizeFocus = (v: unknown): FocusRating | undefined => (v === 1 || v === 2 || v === 3 || v === 4 || v === 5 ? v : undefined);
+
 function sanitizeActive(v: unknown): ActiveSession | null {
   if (!isObj(v)) return null;
   const config = sanitizeConfig(v.config);
@@ -98,6 +116,7 @@ function sanitizeActive(v: unknown): ActiveSession | null {
     roomId: isStr(v.roomId) ? v.roomId : undefined,
     scene: v.scene === 'car' || v.scene === 'minimal' || v.scene === 'honeycomb' ? v.scene : undefined,
     carId: isStr(v.carId) ? migrateCarId(v.carId) : undefined,
+    tasks: sanitizeTasks(v.tasks),
   };
 }
 
@@ -126,6 +145,8 @@ export function parseAppData(raw: unknown): AppData | null {
       carId: isStr(x.carId) ? migrateCarId(x.carId) : undefined,
       manual: x.manual === true ? true : undefined,
       demo: x.demo === true ? true : undefined,
+      tasks: sanitizeTasks(x.tasks),
+      focus: sanitizeFocus(x.focus),
     }));
   const exams: Exam[] = (Array.isArray(raw.exams) ? raw.exams : [])
     .filter((x): x is Record<string, unknown> => isObj(x) && isStr(x.id) && isStr(x.subjectId) && isStr(x.date))

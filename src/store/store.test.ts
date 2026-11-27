@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isDemoMode, stripDemo } from './store';
+import { isDemoMode, makeTasks, stripDemo } from './store';
 import { createSeed } from '../data/seed';
 import type { StudySession } from '../types';
 
@@ -49,5 +49,20 @@ describe('demo mode', () => {
   it('keeps only the friends the student picked', () => {
     const out = stripDemo(createSeed(), ['frd_maya']);
     expect(out.friends.map((f) => f.id)).toEqual(['frd_maya']);
+  });
+});
+
+describe('session plans', () => {
+  it('turns typed lines into tasks, trimming and dropping blanks and repeats', () => {
+    const tasks = makeTasks(['  Past paper 2022 ', '', 'past paper 2022', 'Flashcards'])!;
+    expect(tasks.map((t) => t.text)).toEqual(['Past paper 2022', 'Flashcards']);
+    expect(tasks.every((t) => !t.done && t.id.startsWith('tsk'))).toBe(true);
+    expect(new Set(tasks.map((t) => t.id)).size).toBe(2);
+  });
+
+  it('has no plan when there is nothing to plan, and caps it at 12', () => {
+    expect(makeTasks(undefined)).toBeUndefined();
+    expect(makeTasks(['', '  '])).toBeUndefined();
+    expect(makeTasks(Array.from({ length: 30 }, (_, i) => `task ${i}`))).toHaveLength(12);
   });
 });

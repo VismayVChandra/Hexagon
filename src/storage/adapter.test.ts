@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseAppData } from './adapter';
+import { parseAppData, sanitizeTasks } from './adapter';
 import { createSeed, emptyData } from '../data/seed';
 
 describe('parseAppData', () => {
@@ -104,5 +104,50 @@ describe('cars from the first garage', () => {
     const d = JSON.parse(JSON.stringify(emptyData()));
     d.garage = [{ carId: 'street-coupe', at: 1 }, { carId: 'toyota-corolla', at: 2 }];
     expect(parseAppData(d)!.garage).toHaveLength(1);
+  });
+});
+
+describe('plans, focus ratings and ambient sound', () => {
+  it('keeps valid tasks and drops malformed, blank and repeated ones', () => {
+    const tasks = sanitizeTasks([
+      { id: 'a', text: '  Past paper  ', done: true },
+      { id: 'a', text: 'duplicate id', done: false },
+      { id: 'b', text: '   ', done: false },
+      { id: 'c', text: 42 },
+      'nope',
+      { id: 'd', text: 'x'.repeat(300) },
+    ]);
+    expect(tasks).toEqual([
+      { id: 'a', text: 'Past paper', done: true },
+      { id: 'd', text: 'x'.repeat(100), done: false },
+    ]);
+  });
+
+  it('caps a plan at 12 tasks and returns nothing for an empty or missing plan', () => {
+    const many = Array.from({ length: 20 }, (_, i) => ({ id: `t${i}`, text: `task ${i}`, done: false }));
+    expect(sanitizeTasks(many)).toHaveLength(12);
+    expect(sanitizeTasks([])).toBeUndefined();
+    expect(sanitizeTasks(undefined)).toBeUndefined();
+  });
+
+  it('round-trips tasks and the focus rating on a saved session, and rejects out-of-range ratings', () => {
+    const seed = createSeed();
+    const base = { ...seed.sessions[0] };
+    const raw = JSON.parse(JSON.stringify({ ...seed, sessions: [{ ...base, focus: 4, tasks: [{ id: 'a', text: 'Read ch. 3', done: true }] }, { ...base, id: 'other', focus: 9 }] }));
+    const parsed = parseAppData(raw)!;
+    expect(parsed.sessions[0].focus).toBe(4);
+    expect(parsed.sessions[0].tasks).toEqual([{ id: 'a', text: 'Read ch. 3', done: true }]);
+    expect(parsed.sessions[1].focus).toBeUndefined();
+  });
+
+  it('defaults ambient sound to off and clamps the volume', () => {
+    const seed = createSeed();
+    expect(parseAppData(JSON.parse(JSON.stringify(seed)))!.settings.ambient).toBe('off');
+    const odd = parseAppData(JSON.parse(JSON.stringify({ ...seed, settings: { ...seed.settings, ambient: 'thunder', ambientVolume: 7 } })))!;
+    expect(odd.settings.ambient).toBe('off');
+    expect(odd.settings.ambientVolume).toBe(1);
+    const ok = parseAppData(JSON.parse(JSON.stringify({ ...seed, settings: { ...seed.settings, ambient: 'rain', ambientVolume: 0.25 } })))!;
+    expect(ok.settings.ambient).toBe('rain');
+    expect(ok.settings.ambientVolume).toBe(0.25);
   });
 });

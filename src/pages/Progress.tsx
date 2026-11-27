@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { addManualSession, deleteSession, useStore, validateManualSession } from '../store/store';
 import { showToast, useNow } from '../hooks/hooks';
-import { RANGES, buildBuckets, calendarCells, currentStreak, longestStreak, sessionDay, sessionsInRange, subjectTotals, sum, totalsByDay, weekMs, type RangeId } from '../lib/stats';
+import { DAY_PARTS, MIN_SESSIONS_FOR_PATTERN, RANGES, buildBuckets, calendarCells, currentStreak, focusInsights, longestStreak, sessionDay, sessionsInRange, subjectTotals, sum, totalsByDay, weekMs, type RangeId } from '../lib/stats';
 import { MIN, addDays, daysBetween, dayKey, formatDayLabel, formatDuration, formatShortDate, formatTimeOfDay, parseDayKey } from '../lib/time';
 import { Bar, EmptyState, Field, SubjectDot, subjectColor } from '../components/bits';
 import { CalendarHeat, StackedChart } from '../components/Charts';
@@ -54,6 +54,7 @@ export default function Progress() {
   const best = longestStreak(sessions);
   const week = weekMs(sessions, now);
   const cells = useMemo(() => calendarCells(sessions, now, 12), [sessions, now]);
+  const insights = useMemo(() => focusInsights(filtered), [filtered]);
 
   const history = useMemo(() => [...inRange].sort((a, b) => b.startedAt - a.startedAt), [inRange]);
   const grouped = useMemo(() => {
@@ -209,6 +210,71 @@ export default function Progress() {
             </section>
           </div>
 
+          <section className="card" aria-labelledby="pattern-h">
+            <div className="card-head">
+              <h2 id="pattern-h" className="card-title">
+                When you focus
+              </h2>
+            </div>
+            {insights.bestPart ? (
+              <>
+                <p className="insight-lead">
+                  You study most in the <strong>{insights.bestPart}</strong>
+                  <span className="muted"> · {Math.round((insights.parts.find((p) => p.id === insights.bestPart)?.share ?? 0) * 100)}% of your focus time</span>
+                </p>
+                <ul className="part-bars">
+                  {DAY_PARTS.map((dp) => {
+                    const p = insights.parts.find((x) => x.id === dp.id)!;
+                    const top = Math.max(...insights.parts.map((x) => x.ms), 1);
+                    return (
+                      <li key={dp.id}>
+                        <div className="subject-bars-top small">
+                          <span>
+                            {dp.label} <span className="muted">{dp.hours}</span>
+                          </span>
+                          <span className="muted">
+                            {formatDuration(p.ms)}
+                            {p.avgFocus != null ? ` · focus ${p.avgFocus.toFixed(1)}` : ''}
+                          </span>
+                        </div>
+                        <Bar value={p.ms / top} color={dp.id === insights.bestPart ? 'var(--honey)' : 'var(--primary)'} label={`${dp.label}: ${formatDuration(p.ms)}`} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            ) : (
+              <p className="muted">
+                {insights.sessions === 0 ? 'Timed sessions will show here.' : `After ${MIN_SESSIONS_FOR_PATTERN} timed sessions Hexagon can show when you focus best. You’ve done ${insights.sessions}.`}
+              </p>
+            )}
+            {insights.sessions > 0 && (
+              <dl className="insight-stats">
+                <div>
+                  <dt>Average session</dt>
+                  <dd>{formatDuration(insights.avgMs)}</dd>
+                </div>
+                <div>
+                  <dt>Longest</dt>
+                  <dd>{formatDuration(insights.longestMs)}</dd>
+                </div>
+                <div>
+                  <dt>Felt focused</dt>
+                  <dd>{insights.avgFocus != null ? `${insights.avgFocus.toFixed(1)} / 5` : '—'}</dd>
+                </div>
+                {insights.tasksTotal > 0 && (
+                  <div>
+                    <dt>Plan done</dt>
+                    <dd>
+                      {insights.tasksDone} of {insights.tasksTotal}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            )}
+            {insights.rated === 0 && insights.sessions > 0 && <p className="hint">Rate how focused a session felt when you finish it, and it shows up here.</p>}
+          </section>
+
           <section className="card" aria-labelledby="cal-h">
             <div className="card-head">
               <h2 id="cal-h" className="card-title">
@@ -251,6 +317,8 @@ export default function Progress() {
                                 <p className="muted small">
                                   {s.manual ? 'Logged by hand' : `${formatTimeOfDay(s.startedAt)} · ${s.mode}`}
                                   {s.breakMs > 0 ? ` · ${formatDuration(s.breakMs)} break` : ''}
+                                  {s.focus ? ` · focus ${s.focus}/5` : ''}
+                                  {s.tasks?.length ? ` · ${s.tasks.filter((t) => t.done).length}/${s.tasks.length} tasks` : ''}
                                   {s.demo ? ' · demo' : ''}
                                 </p>
                                 {s.notes && <p className="note">{s.notes}</p>}

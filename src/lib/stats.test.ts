@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Exam, StudySession } from '../types';
-import { buildBuckets, currentStreak, longestStreak, recentWeeklyAverage, subjectTotals, todayMs, weekMs } from './stats';
+import { buildBuckets, currentStreak, dayPartOf, focusInsights, longestStreak, recentWeeklyAverage, subjectTotals, todayMs, weekMs } from './stats';
 import { suggestWeeklyGoal, examPlan } from './goals';
 import { DAY, HOUR, MIN, addDays, dayKey, weekStartKey } from './time';
 
@@ -137,5 +137,52 @@ describe('streak milestones', () => {
     expect(nextMilestone(3)).toEqual({ target: 7, remaining: 4 });
     expect(nextMilestone(29)).toEqual({ target: 30, remaining: 1 });
     expect(nextMilestone(365)).toBeNull();
+  });
+});
+
+describe('focus insights', () => {
+  const at = (hour: number, minutes: number, extra: Partial<StudySession> = {}): StudySession => {
+    const start = new Date(2026, 10, 20, hour, 0, 0).getTime();
+    return { id: Math.random().toString(), subjectId: 'a', topic: '', goal: '', notes: '', mode: 'stopwatch', startedAt: start, endedAt: start + minutes * MIN, studiedMs: minutes * MIN, breakMs: 0, friendIds: [], ...extra };
+  };
+
+  it('sorts start times into parts of the day', () => {
+    const t = (h: number) => new Date(2026, 10, 20, h, 30).getTime();
+    expect([4, 5, 11, 12, 16, 17, 21, 22, 23].map((h) => dayPartOf(t(h)))).toEqual(['night', 'morning', 'morning', 'afternoon', 'afternoon', 'evening', 'evening', 'night', 'night']);
+  });
+
+  it('says nothing about a best time until there are enough sessions', () => {
+    expect(focusInsights([at(20, 30), at(20, 30)]).bestPart).toBeNull();
+    expect(focusInsights([at(20, 30), at(20, 30), at(21, 30), at(9, 10)]).bestPart).toBe('evening');
+  });
+
+  it('weights parts by study time, not by number of sessions', () => {
+    const ins = focusInsights([at(9, 10), at(9, 10), at(9, 10), at(19, 120)]);
+    expect(ins.bestPart).toBe('evening');
+    expect(ins.parts.find((p) => p.id === 'evening')!.share).toBeCloseTo(120 / 150);
+  });
+
+  it('ignores manual and under-a-minute sessions', () => {
+    const ins = focusInsights([at(9, 30, { manual: true }), { ...at(9, 1), studiedMs: 30_000 }, at(10, 20)]);
+    expect(ins.sessions).toBe(1);
+    expect(ins.longestMs).toBe(20 * MIN);
+  });
+
+  it('averages focus ratings and counts ticked tasks', () => {
+    const task = (done: boolean) => ({ id: Math.random().toString(), text: 't', done });
+    const ins = focusInsights([at(9, 30, { focus: 4, tasks: [task(true), task(false)] }), at(9, 30, { focus: 2 }), at(14, 30, { focus: 5, tasks: [task(true)] })]);
+    expect(ins.rated).toBe(3);
+    expect(ins.avgFocus).toBeCloseTo((4 + 2 + 5) / 3);
+    expect(ins.parts.find((p) => p.id === 'morning')!.avgFocus).toBeCloseTo(3);
+    expect(ins.tasksDone).toBe(2);
+    expect(ins.tasksTotal).toBe(3);
+  });
+
+  it('is all zeros for no sessions', () => {
+    const ins = focusInsights([]);
+    expect(ins.sessions).toBe(0);
+    expect(ins.avgFocus).toBeNull();
+    expect(ins.bestPart).toBeNull();
+    expect(ins.parts.every((p) => p.ms === 0 && p.share === 0)).toBe(true);
   });
 });

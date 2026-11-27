@@ -172,3 +172,93 @@ export function nextMilestone(days: number): { target: number; remaining: number
   const target = STREAK_MILESTONES.find((m) => m > days);
   return target ? { target, remaining: target - days } : null;
 }
+
+// ---------- focus insights ----------
+
+export type DayPart = 'morning' | 'afternoon' | 'evening' | 'night';
+
+export const DAY_PARTS: { id: DayPart; label: string; hours: string }[] = [
+  { id: 'morning', label: 'Morning', hours: '5 am – 12 pm' },
+  { id: 'afternoon', label: 'Afternoon', hours: '12 – 5 pm' },
+  { id: 'evening', label: 'Evening', hours: '5 – 10 pm' },
+  { id: 'night', label: 'Night', hours: '10 pm – 5 am' },
+];
+
+export function dayPartOf(ts: number): DayPart {
+  const h = new Date(ts).getHours();
+  if (h >= 5 && h < 12) return 'morning';
+  if (h >= 12 && h < 17) return 'afternoon';
+  if (h >= 17 && h < 22) return 'evening';
+  return 'night';
+}
+
+export interface FocusInsights {
+  /** Timed sessions the numbers are based on. */
+  sessions: number;
+  parts: { id: DayPart; ms: number; share: number; avgFocus: number | null }[];
+  /** The part of the day with the most study time, once there are enough sessions to say. */
+  bestPart: DayPart | null;
+  /** Average of the focus ratings the student gave, and how many there were. */
+  avgFocus: number | null;
+  rated: number;
+  longestMs: number;
+  avgMs: number;
+  /** Tasks ticked off across sessions that had a plan. */
+  tasksDone: number;
+  tasksTotal: number;
+}
+
+/** Enough sessions before we start telling someone when they "study best". */
+export const MIN_SESSIONS_FOR_PATTERN = 4;
+
+/** Patterns in timed study sessions: when focus time happens, how focused it felt, and how long sessions run. */
+export function focusInsights(sessions: StudySession[]): FocusInsights {
+  const timed = sessions.filter((s) => !s.manual && s.studiedMs >= MIN);
+  const ms: Record<DayPart, number> = { morning: 0, afternoon: 0, evening: 0, night: 0 };
+  const ratingSum: Record<DayPart, number> = { morning: 0, afternoon: 0, evening: 0, night: 0 };
+  const ratingN: Record<DayPart, number> = { morning: 0, afternoon: 0, evening: 0, night: 0 };
+  let total = 0;
+  let longest = 0;
+  let rSum = 0;
+  let rN = 0;
+  let tDone = 0;
+  let tTotal = 0;
+  for (const s of timed) {
+    const part = dayPartOf(s.startedAt);
+    ms[part] += s.studiedMs;
+    total += s.studiedMs;
+    longest = Math.max(longest, s.studiedMs);
+    if (s.focus) {
+      ratingSum[part] += s.focus;
+      ratingN[part] += 1;
+      rSum += s.focus;
+      rN += 1;
+    }
+    if (s.tasks) {
+      tTotal += s.tasks.length;
+      tDone += s.tasks.filter((t) => t.done).length;
+    }
+  }
+  const parts = DAY_PARTS.map((p) => ({
+    id: p.id,
+    ms: ms[p.id],
+    share: total > 0 ? ms[p.id] / total : 0,
+    avgFocus: ratingN[p.id] > 0 ? ratingSum[p.id] / ratingN[p.id] : null,
+  }));
+  let best: DayPart | null = null;
+  if (timed.length >= MIN_SESSIONS_FOR_PATTERN) {
+    const top = parts.reduce((a, b) => (b.ms > a.ms ? b : a));
+    if (top.ms > 0) best = top.id;
+  }
+  return {
+    sessions: timed.length,
+    parts,
+    bestPart: best,
+    avgFocus: rN > 0 ? rSum / rN : null,
+    rated: rN,
+    longestMs: longest,
+    avgMs: timed.length > 0 ? total / timed.length : 0,
+    tasksDone: tDone,
+    tasksTotal: tTotal,
+  };
+}

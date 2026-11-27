@@ -27,6 +27,16 @@ function omit(o: Record<string, string>, ...keys: string[]) {
 
 const toNum = (s: string) => (s.trim() === '' ? NaN : Number(s));
 
+/** One-tap timer setups. */
+const PRESETS: { id: string; label: string; mode: TimerMode; min?: number; focus?: number; brk?: number }[] = [
+  { id: 'open', label: 'Open-ended', mode: 'stopwatch' },
+  { id: 'cd25', label: '25 min', mode: 'countdown', min: 25 },
+  { id: 'cd45', label: '45 min', mode: 'countdown', min: 45 },
+  { id: 'cd90', label: '90 min', mode: 'countdown', min: 90 },
+  { id: 'pomo25', label: 'Pomodoro 25 / 5', mode: 'pomodoro', focus: 25, brk: 5 },
+  { id: 'pomo50', label: 'Pomodoro 50 / 10', mode: 'pomodoro', focus: 50, brk: 10 },
+];
+
 export default function Study() {
   const { data } = useStore();
   const navigate = useNavigate();
@@ -50,6 +60,9 @@ export default function Study() {
     cycles: String(data.settings.pomodoro.cyclesBeforeLong),
   });
   const [friendIds, setFriendIds] = useState<string[]>([]);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [tasks, setTasks] = useState<string[]>([]);
+  const [taskText, setTaskText] = useState('');
   const collected = new Set(data.garage.map((g) => g.carId));
   const todo = CARS.filter((c) => !collected.has(c.id));
   const allCollected = todo.length === 0;
@@ -128,10 +141,33 @@ export default function Study() {
       carId: scene === 'car' ? carId : undefined,
       friendIds: room || live ? [] : friendIds,
       roomId: room?.id,
+      tasks,
     });
     if (r.ok) navigate('/session', { replace: true });
     else setErrors({ form: r.error });
   }
+
+  function addTask() {
+    const t = taskText.trim().slice(0, 100);
+    if (!t) return;
+    if (tasks.some((x) => x.toLowerCase() === t.toLowerCase())) {
+      setTaskText('');
+      return;
+    }
+    if (tasks.length >= 12) return;
+    setTasks([...tasks, t]);
+    setTaskText('');
+  }
+
+  function applyPreset(p: (typeof PRESETS)[number]) {
+    setMode(p.mode);
+    if (p.mode === 'countdown' && p.min) setCountdown(String(p.min));
+    if (p.mode === 'pomodoro' && p.focus && p.brk) setPomo((cur) => ({ ...cur, focus: String(p.focus), brk: String(p.brk) }));
+    setErrors((e) => omit(e, 'countdown', 'focus', 'brk'));
+  }
+
+  const presetOn = (p: (typeof PRESETS)[number]) =>
+    mode === p.mode && (p.mode === 'stopwatch' || (p.mode === 'countdown' && countdown === String(p.min)) || (p.mode === 'pomodoro' && pomo.focus === String(p.focus) && pomo.brk === String(p.brk)));
 
   const toggleFriend = (id: string) => setFriendIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const roomMates = room ? rows.filter((r) => r.state === 'studying' && r.roomId === room.id) : [];
@@ -225,20 +261,73 @@ export default function Study() {
               </div>
             </div>
           )}
-          <div className="grid-2">
-            <Field label="Topic (optional)" htmlFor="topic" error={errors.topic}>
-              <input id="topic" value={topic} maxLength={100} autoComplete="off" placeholder="e.g. Integration by parts" aria-invalid={!!errors.topic} onChange={(e) => setTopic(e.target.value)} />
-            </Field>
-            <Field label="Goal for this session (optional)" htmlFor="goal" error={errors.goal}>
-              <input id="goal" value={goal} maxLength={140} autoComplete="off" placeholder="e.g. Finish problem set 4" aria-invalid={!!errors.goal} onChange={(e) => setGoal(e.target.value)} />
-            </Field>
-          </div>
+          <details className="more" open={detailsOpen || !!errors.topic || !!errors.goal} onToggle={(e) => setDetailsOpen(e.currentTarget.open)}>
+            <summary>
+              <span>Add details</span>
+              <small className="muted">
+                {topic || goal || tasks.length ? [topic && 'topic', goal && 'goal', tasks.length && `${tasks.length} ${tasks.length === 1 ? 'task' : 'tasks'}`].filter(Boolean).join(' · ') : 'Topic, goal, plan'}
+              </small>
+            </summary>
+            <div className="more-body">
+              <div className="grid-2">
+                <Field label="Topic (optional)" htmlFor="topic" error={errors.topic}>
+                  <input id="topic" value={topic} maxLength={100} autoComplete="off" placeholder="e.g. Integration by parts" aria-invalid={!!errors.topic} onChange={(e) => setTopic(e.target.value)} />
+                </Field>
+                <Field label="Goal for this session (optional)" htmlFor="goal" error={errors.goal}>
+                  <input id="goal" value={goal} maxLength={140} autoComplete="off" placeholder="e.g. Finish problem set 4" aria-invalid={!!errors.goal} onChange={(e) => setGoal(e.target.value)} />
+                </Field>
+              </div>
+              <div className="field">
+                <label htmlFor="plan-new">Plan (optional)</label>
+                <div className="task-add">
+                  <input
+                    id="plan-new"
+                    value={taskText}
+                    maxLength={100}
+                    autoComplete="off"
+                    enterKeyHint="done"
+                    placeholder="e.g. Past paper, section B"
+                    onChange={(e) => setTaskText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTask();
+                      }
+                    }}
+                  />
+                  <button type="button" className="btn btn-secondary" disabled={!taskText.trim() || tasks.length >= 12} onClick={addTask}>
+                    Add
+                  </button>
+                </div>
+                {tasks.length > 0 && (
+                  <ul className="plan-chips" aria-label="Your plan">
+                    {tasks.map((t) => (
+                      <li key={t}>
+                        <span>{t}</span>
+                        <button type="button" aria-label={`Remove “${t}”`} onClick={() => setTasks(tasks.filter((x) => x !== t))}>
+                          <Icon name="x" size={14} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="hint">You’ll tick these off during the session.</p>
+              </div>
+            </div>
+          </details>
         </section>
 
         <section className="card" aria-labelledby="mode-h">
           <h2 id="mode-h" className="card-title">
             Timer
           </h2>
+          <div className="chips" role="group" aria-label="Quick picks">
+            {PRESETS.map((p) => (
+              <button key={p.id} type="button" className={`chip${presetOn(p) ? ' is-on' : ''}`} aria-pressed={presetOn(p)} disabled={locked} onClick={() => applyPreset(p)}>
+                {p.label}
+              </button>
+            ))}
+          </div>
           <div role="radiogroup" aria-labelledby="mode-h" className="segmented">
             {MODES.map((m) => (
               <button

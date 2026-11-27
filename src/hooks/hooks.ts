@@ -174,6 +174,11 @@ export function primeAudio() {
   }
 }
 
+/** The shared audio context, once primeAudio has run from a user gesture. */
+export function audioContext(): AudioContext | null {
+  return audioCtx;
+}
+
 export function chime(kind: 'start' | 'end') {
   try {
     if (!audioCtx) return;

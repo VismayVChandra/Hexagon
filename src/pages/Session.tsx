@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { discardSession, extendActive, finishSession, pauseActive, resumeActive, skipActiveBreak, updateSettings, useStore } from '../store/store';
+import { discardSession, extendActive, finishSession, getState, pauseActive, resumeActive, skipActiveBreak, updateSettings, useStore } from '../store/store';
 import { chime, haptic, showToast, useMediaQuery, useNow, useWakeLock, wakeLockSupported } from '../hooks/hooks';
 import { computeView, modeLabel } from '../lib/timer';
 import { dayKey, formatClock, formatDuration, spokenDuration, MIN } from '../lib/time';
@@ -14,6 +14,8 @@ import { HoneycombScene } from '../components/CombView';
 import { CarScene } from '../components/CarArt';
 import { buildMs, carById } from '../data/cars';
 import { CELL_MS } from '../lib/hive';
+import { FocusPicker, PlanCard, SoundCard } from '../components/SessionExtras';
+import type { FocusRating } from '../types';
 
 function encouragement(studiedMs: number, todayTotal: number, goalMs: number, isBreak: boolean): string {
   if (isBreak) return 'Rest well. You’ve earned it.';
@@ -34,6 +36,9 @@ export default function Session() {
   const [finishing, setFinishing] = useState(false);
   const [discarding, setDiscarding] = useState(false);
   const [notes, setNotes] = useState('');
+  const [focus, setFocus] = useState<FocusRating | undefined>();
+  // Opening the finish sheet pauses the clock; if it is dismissed rather than saved, pick up where the student was.
+  const resumeOnClose = useRef(false);
   // Set just before we clear the session ourselves, so the "no session -> go to Study" redirect doesn't race our own navigation.
   const leaving = useRef(false);
   const wake = useWakeLock(running && data.settings.keepAwake);
@@ -56,6 +61,24 @@ export default function Session() {
     }
     carWasDone.current = carDone;
   }, [carDone, data.settings.sound, data.settings.haptics]);
+
+  // Space (or K) pauses and resumes, for desktop use. Ignored while typing, on buttons and links, and while a dialog is open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      if (e.key !== ' ' && e.key.toLowerCase() !== 'k') return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, button, a, [contenteditable], dialog')) return;
+      if (document.querySelector('dialog[open]')) return;
+      const a = getState().data.active;
+      if (!a || computeView(a, Date.now()).done) return;
+      e.preventDefault();
+      if (a.resumedAt != null) pauseActive();
+      else resumeActive();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Chime when a block ends or a break ends — only while the app is open and sound is on.
   const lastKey = useRef<string | null>(null);
@@ -114,16 +137,24 @@ export default function Session() {
 
   function openFinish() {
     haptic('tap', data.settings.haptics);
+    resumeOnClose.current = !!view?.running;
     pauseActive();
     setFinishing(true);
   }
 
+  function closeFinish() {
+    setFinishing(false);
+    if (resumeOnClose.current) resumeActive();
+    resumeOnClose.current = false;
+  }
+
   function save() {
     leaving.current = true;
-    const r = finishSession(notes);
+    const r = finishSession(notes, focus);
     if (r.ok) {
       setFinishing(false);
       setNotes('');
+      setFocus(undefined);
       haptic('success', data.settings.haptics);
       navigate('/', { replace: true });
     } else {
@@ -318,6 +349,10 @@ export default function Session() {
         </section>
       )}
 
+      <PlanCard tasks={active.tasks ?? []} />
+
+      <SoundCard />
+
       <section className="card">
         <h2 className="card-title">This session</h2>
         <Toggle
@@ -339,7 +374,7 @@ export default function Session() {
         </p>
       </section>
 
-      <Dialog open={finishing} onClose={() => { setFinishing(false); }} title="Finish session">
+      <Dialog open={finishing} onClose={closeFinish} title="Finish session">
         <div className="finish-summary">
           <div>
             <span className="eyebrow">Studied</span>
@@ -357,6 +392,12 @@ export default function Session() {
           {active.topic ? ` · ${active.topic}` : ''}
         </p>
         {shortSession && <p className="banner banner-info small">That’s under a minute. You can still save it, or discard it.</p>}
+        {active.tasks && active.tasks.length > 0 && (
+          <p className="muted small">
+            Plan: {active.tasks.filter((t) => t.done).length} of {active.tasks.length} done
+          </p>
+        )}
+        <FocusPicker value={focus} onChange={setFocus} />
         <div className="field">
           <label htmlFor="notes">What did you study? (optional)</label>
           <textarea id="notes" rows={4} maxLength={600} value={notes} placeholder="Problems finished, chapters read, what to revisit…" onChange={(e) => setNotes(e.target.value)} />
@@ -371,6 +412,7 @@ export default function Session() {
               type="button"
               className="btn btn-quiet"
               onClick={() => {
+                resumeOnClose.current = false;
                 setFinishing(false);
                 resumeActive();
               }}

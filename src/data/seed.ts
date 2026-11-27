@@ -13,6 +13,8 @@ export const DEFAULT_SETTINGS: Settings = {
   scene: 'honeycomb',
   keepAwake: true,
   sound: true,
+  ambient: 'off',
+  ambientVolume: 0.5,
   haptics: true,
   sharePresence: false,
   shareSubject: false,
