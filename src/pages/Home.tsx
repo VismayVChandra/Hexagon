@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { dismissSummary, isDemoMode, startSession, updateSettings, useStore } from '../store/store';
 import { haptic, useInstall, useNow, primeAudio, showToast } from '../hooks/hooks';
 import { SummaryCard } from '../components/SummaryCard';
+import { HiveCard } from '../components/HiveCard';
+import { GarageCard } from '../components/GarageCard';
 import { currentStreak, nextMilestone, sessionDay, STREAK_MIN_MS, subjectTotals, sessionsInRange, sum, todayMs, totalsByDay, weekMs } from '../lib/stats';
 import { MIN, addDays, daysBetween, dayKey, formatDayLabel, formatDuration, greeting, relativeDays, weekStartKey, parseDayKey, formatShortDate } from '../lib/time';
 import type { StudySession, Subject } from '../types';
@@ -124,6 +126,9 @@ export default function Home() {
           )}
         </section>
       )}
+
+      <HiveCard sessions={sessions} now={now} />
+      {(settings.scene === 'car' || data.garage.length > 0 || Object.keys(data.builds).length > 0) && <GarageCard garage={data.garage} builds={data.builds} />}
 
       <div className="grid-cards">
         <section className="card goal-card" aria-labelledby="today-h">

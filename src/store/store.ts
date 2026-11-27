@@ -1,12 +1,14 @@
 import { useSyncExternalStore } from 'react';
-import type { ActiveSession, AppData, Exam, Friend, SessionSummary, Settings, StudySession, Subject, TimerConfig } from '../types';
+import type { ActiveSession, AppData, Exam, Friend, Scene, SessionSummary, Settings, StudySession, Subject, TimerConfig } from '../types';
 import { LocalStorageAdapter, MemoryAdapter, STORAGE_KEY, StorageError, parseAppData, type StudyStorage } from '../storage/adapter';
 import { createSeed, emptyData, SUBJECT_COLORS } from '../data/seed';
 import { makeSimFriend } from '../data/friendsSim';
 import { uid } from '../lib/id';
 import { AWAY_THRESHOLD_MS, computeView, extendCountdown, pause, resume, skipBreak, stopAtLastSeen } from '../lib/timer';
-import { isValidDayKey } from '../lib/time';
+import { dayKey as dayKeyOf, isValidDayKey } from '../lib/time';
 import { currentStreak, longestStreak, todayMs, weekMs } from '../lib/stats';
+import { GOLDEN_SESSION_MS, cellsFromMs, goldenDayKeys, rankFor, timedMs } from '../lib/hive';
+import { applyBuild, buildMs, carById } from '../data/cars';
 import { MIN } from '../lib/time';
 import { showToast } from '../hooks/hooks';
 
@@ -195,6 +197,8 @@ export function deleteSubject(id: string): Result<null> {
 // ---------- active session ----------
 
 export interface StartParams {
+  scene?: Scene;
+  carId?: string;
   subjectId: string;
   topic: string;
   goal: string;
@@ -218,8 +222,10 @@ export function startSession(p: StartParams, now = Date.now()): Result<ActiveSes
     lastSeenAt: now,
     friendIds: p.friendIds,
     roomId: p.roomId,
+    scene: p.scene ?? state.data.settings.scene,
+    carId: p.scene === 'car' ? p.carId : undefined,
   };
-  mutateLeavingDemo((d) => ({ ...d, active, settings: { ...d.settings, lastSubjectId: p.subjectId } }), p.friendIds);
+  mutateLeavingDemo((d) => ({ ...d, active, settings: { ...d.settings, lastSubjectId: p.subjectId, scene: active.scene ?? d.settings.scene } }), p.friendIds);
   return { ok: true, value: active };
 }
 
@@ -269,6 +275,8 @@ export function finishSession(notes: string, now = Date.now()): Result<StudySess
     breakMs: v.breakMs,
     friendIds: a.friendIds,
     roomId: a.roomId,
+    scene: a.scene,
+    carId: a.scene === 'car' ? a.carId : undefined,
   };
   const before = state.data.sessions;
   const after = [...before, session];
@@ -276,6 +284,17 @@ export function finishSession(notes: string, now = Date.now()): Result<StudySess
   const prevStreak = currentStreak(before, now);
   const streak = currentStreak(after, now);
   const today = todayMs(after, now);
+
+  // Rewards: honey cells, bee rank, today's golden cell, and car progress. Only timed sessions earn them.
+  const cellsBefore = cellsFromMs(timedMs(before));
+  const cellsAfter = cellsFromMs(timedMs(after));
+  const rankBefore = rankFor(timedMs(before)).rank;
+  const rankAfter = rankFor(timedMs(after)).rank;
+  const goldenEarned = session.studiedMs >= GOLDEN_SESSION_MS && !goldenDayKeys(before).has(dayKeyOf(session.startedAt));
+  const built = applyBuild(state.data.builds, state.data.garage, session.carId, session.studiedMs, now);
+  const car = carById(session.carId);
+  const carProgress = car ? (built.completed ? 1 : (built.builds[car.id] ?? 0) / buildMs(car)) : 0;
+
   const summary: SessionSummary = {
     sessionId: session.id,
     subjectId: session.subjectId,
@@ -288,8 +307,13 @@ export function finishSession(notes: string, now = Date.now()): Result<StudySess
     newBestStreak: streak.days >= 2 && streak.days > longestStreak(before),
     weekMs: weekMs(after, now),
     weeklyGoalMs: state.data.settings.weeklyGoalMin * MIN,
+    cellsAdded: cellsAfter - cellsBefore,
+    hiveCells: cellsAfter,
+    rankUp: rankAfter.id !== rankBefore.id ? { from: rankBefore.name, to: rankAfter.name } : undefined,
+    goldenEarned,
+    car: car ? { id: car.id, name: car.name, completed: !!built.completed, progress: carProgress } : undefined,
   };
-  mutate((d) => ({ ...d, sessions: after, active: null }));
+  mutate((d) => ({ ...d, sessions: after, active: null, builds: built.builds, garage: built.garage }));
   set({ summary });
   return { ok: true, value: session };
 }

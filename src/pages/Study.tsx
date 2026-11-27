@@ -6,8 +6,10 @@ import { ROOMS, friendPresence } from '../data/friendsSim';
 import { useFriendRows } from '../cloud/useFriendRows';
 import { haptic, primeAudio, useNow } from '../hooks/hooks';
 import { formatDuration, MIN } from '../lib/time';
-import type { PomodoroConfig, TimerMode } from '../types';
-import { DemoBadge, Field, FriendAvatar, StateBadge, SubjectDot } from '../components/bits';
+import type { PomodoroConfig, Scene, TimerMode } from '../types';
+import { CARS, buildMs } from '../data/cars';
+import { CarArt } from '../components/CarArt';
+import { Bar, DemoBadge, Field, FriendAvatar, StateBadge, SubjectDot } from '../components/bits';
 import { Icon } from '../components/Icon';
 
 const MODES: { id: TimerMode; label: string; blurb: string }[] = [
@@ -47,6 +49,12 @@ export default function Study() {
     cycles: String(data.settings.pomodoro.cyclesBeforeLong),
   });
   const [friendIds, setFriendIds] = useState<string[]>([]);
+  const collected = new Set(data.garage.map((g) => g.carId));
+  const todo = CARS.filter((c) => !collected.has(c.id));
+  const allCollected = todo.length === 0;
+  // Offer the car you've made the most progress on first.
+  const [carId, setCarId] = useState<string | undefined>(() => [...todo].sort((a, b) => (data.builds[b.id] ?? 0) / buildMs(b) - (data.builds[a.id] ?? 0) / buildMs(a))[0]?.id);
+  const [scene, setScene] = useState<Scene>(() => (data.settings.scene === 'car' && allCollected ? 'honeycomb' : data.settings.scene));
   const [addingSubject, setAddingSubject] = useState(data.subjects.length === 0);
   const [newSubject, setNewSubject] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -98,6 +106,8 @@ export default function Study() {
       pomodoro = { focusMin, breakMin, longBreakMin, cyclesBeforeLong };
     }
 
+    if (scene === 'car' && !carId) errs.car = 'Choose a car to build.';
+
     setErrors(errs);
     if (Object.keys(errs).length) {
       requestAnimationFrame(() => (formRef.current?.querySelector('[aria-invalid="true"]') as HTMLElement | null)?.focus());
@@ -111,6 +121,8 @@ export default function Study() {
       topic,
       goal,
       config: mode === 'countdown' ? { mode, targetMin: cd } : mode === 'pomodoro' ? { mode, pomodoro } : { mode },
+      scene,
+      carId: scene === 'car' ? carId : undefined,
       friendIds: room || live ? [] : friendIds,
       roomId: room?.id,
     });
@@ -276,6 +288,67 @@ export default function Study() {
                 </Field>
               </div>
             </div>
+          )}
+        </section>
+
+        <section className="card" aria-labelledby="scene-h">
+          <h2 id="scene-h" className="card-title">
+            While you study
+          </h2>
+          <div role="radiogroup" aria-labelledby="scene-h" className="segmented">
+            <button type="button" role="radio" aria-checked={scene === 'honeycomb'} className={`segment${scene === 'honeycomb' ? ' is-on' : ''}`} onClick={() => setScene('honeycomb')}>
+              <span>Honeycomb</span>
+              <small>Fill honey cells</small>
+            </button>
+            <button type="button" role="radio" aria-checked={scene === 'car'} disabled={allCollected} className={`segment${scene === 'car' ? ' is-on' : ''}`} onClick={() => setScene('car')}>
+              <span>Build a car</span>
+              <small>{allCollected ? 'Garage full' : 'Collect cars'}</small>
+            </button>
+            <button type="button" role="radio" aria-checked={scene === 'minimal'} className={`segment${scene === 'minimal' ? ' is-on' : ''}`} onClick={() => setScene('minimal')}>
+              <span>Minimal</span>
+              <small>Just a ring</small>
+            </button>
+          </div>
+
+          {scene === 'honeycomb' && <p className="muted small">Every 5 minutes of focus fills a honey cell, and your cells grow into your hive.</p>}
+          {scene === 'minimal' && <p className="muted small">A plain progress ring. Honey from timed sessions still goes into your hive.</p>}
+          {scene === 'car' && (
+            <>
+              <p className="muted small">Pick a car. The longer you focus, the more of it gets built: frame, wheels, suspension, engine, body, paint. Progress carries over between sessions, and finished cars go in your garage.</p>
+              <div role="radiogroup" aria-label="Choose a car" className="car-picker">
+                {CARS.map((car) => {
+                  const owned = collected.has(car.id);
+                  const progress = owned ? 1 : Math.min(1, (data.builds[car.id] ?? 0) / buildMs(car));
+                  const selected = carId === car.id;
+                  return (
+                    <button
+                      key={car.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      disabled={owned}
+                      className={`car-option${selected ? ' is-on' : ''}${owned ? ' is-owned' : ''}`}
+                      onClick={() => {
+                        setCarId(car.id);
+                        setErrors((e) => omit(e, 'car'));
+                      }}
+                    >
+                      <CarArt car={car} locked={!owned} label="" />
+                      {!owned && progress > 0 && <Bar value={progress} label={`${car.name} build progress`} />}
+                      <span className="car-option-name">{car.name}</span>
+                      <small className="muted">
+                        {owned ? 'In your garage' : progress > 0 ? `${Math.floor(progress * 100)}% built · ${car.buildMin} min` : `${car.buildMin} min of focus`}
+                      </small>
+                    </button>
+                  );
+                })}
+              </div>
+              {errors.car && (
+                <p className="field-error" role="alert">
+                  {errors.car}
+                </p>
+              )}
+            </>
           )}
         </section>
 

@@ -1,5 +1,14 @@
 export type TimerMode = 'stopwatch' | 'countdown' | 'pomodoro';
 
+/** What plays while the timer runs: the honeycomb (default), a car being built, or just a ring. */
+export type Scene = 'honeycomb' | 'car' | 'minimal';
+
+/** A car the student has finished building. */
+export interface GarageItem {
+  carId: string;
+  at: number;
+}
+
 export interface PomodoroConfig {
   focusMin: number;
   breakMin: number;
@@ -38,6 +47,8 @@ export interface StudySession {
   breakMs: number;
   friendIds: string[];
   roomId?: string;
+  scene?: Scene;
+  carId?: string;
   /** Logged by hand rather than timed. */
   manual?: boolean;
   demo?: boolean;
@@ -58,6 +69,9 @@ export interface ActiveSession {
   lastSeenAt: number;
   friendIds: string[];
   roomId?: string;
+  scene?: Scene;
+  /** The car being built, when scene is 'car'. */
+  carId?: string;
 }
 
 export interface Exam {
@@ -92,6 +106,8 @@ export interface Settings {
   pomodoro: PomodoroConfig;
   /** Appearance. `system` follows the device. */
   theme: ThemePref;
+  /** The scene used for the next session (remembered from the last one). */
+  scene: Scene;
   keepAwake: boolean;
   sound: boolean;
   /** Short vibrations on key actions, where the browser supports them. */
@@ -112,6 +128,10 @@ export interface AppData {
   exams: Exam[];
   friends: Friend[];
   active: ActiveSession | null;
+  /** Cars finished. */
+  garage: GarageItem[];
+  /** Focus time put into each unfinished car (milliseconds, by car id). */
+  builds: Record<string, number>;
 }
 
 export type FriendState = 'studying' | 'online' | 'finished' | 'offline';
@@ -132,4 +152,11 @@ export interface SessionSummary {
   newBestStreak: boolean;
   weekMs: number;
   weeklyGoalMs: number;
+  /** Honey cells this session added to the hive. */
+  cellsAdded: number;
+  hiveCells: number;
+  rankUp?: { from: string; to: string };
+  /** This session earned today's golden cell. */
+  goldenEarned: boolean;
+  car?: { id: string; name: string; completed: boolean; progress: number };
 }

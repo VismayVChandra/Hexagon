@@ -10,6 +10,10 @@ import { useFriendRows } from '../cloud/useFriendRows';
 import { Bar, DemoBadge, FriendAvatar, ProgressRing, StateBadge, SubjectDot, Toggle } from '../components/bits';
 import { Icon } from '../components/Icon';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
+import { HoneycombScene } from '../components/Comb';
+import { CarScene } from '../components/CarArt';
+import { buildMs, carById } from '../data/cars';
+import { CELL_MS } from '../lib/hive';
 
 function encouragement(studiedMs: number, todayTotal: number, goalMs: number, isBreak: boolean): string {
   if (isBreak) return 'Rest well. You’ve earned it.';
@@ -39,6 +43,19 @@ export default function Session() {
 
   const view = active ? computeView(active, now) : null;
   const subject = active ? data.subjects.find((s) => s.id === active.subjectId) : undefined;
+
+  // Building a car: progress carries over from earlier sessions, so add what's already in the workshop.
+  const car = active?.scene === 'car' ? carById(active.carId) : undefined;
+  const carProgress = car && view ? ((data.builds[car.id] ?? 0) + view.studiedMs) / buildMs(car) : 0;
+  const carDone = carProgress >= 1;
+  const carWasDone = useRef(carDone);
+  useEffect(() => {
+    if (carDone && !carWasDone.current) {
+      if (data.settings.sound) chime('end');
+      haptic('success', data.settings.haptics);
+    }
+    carWasDone.current = carDone;
+  }, [carDone, data.settings.sound, data.settings.haptics]);
 
   // Chime when a block ends or a break ends — only while the app is open and sound is on.
   const lastKey = useRef<string | null>(null);
@@ -74,6 +91,26 @@ export default function Session() {
   const stateLabel = view.done ? 'Time’s up' : isBreak ? 'Break' : !view.running ? 'Paused' : active.config.mode === 'pomodoro' ? `Focus ${view.block}` : 'Studying';
   const ringProgress = view.progress ?? (view.totalRunMs % 60_000) / 60_000;
   const mode = active.config.mode;
+  const scene = active.scene === 'car' && car ? 'car' : active.scene === 'minimal' ? 'minimal' : 'honeycomb';
+  const sceneState = view.done ? 'done' : isBreak ? 'break' : !view.running ? 'paused' : 'working';
+
+  // Honeycomb: outline the cells that make up this session's goal (a countdown, or the current Pomodoro block).
+  let goalRange: { fromMs: number; toMs: number } | null = null;
+  if (mode === 'countdown') goalRange = { fromMs: 0, toMs: (active.config.targetMin ?? 25) * MIN };
+  else if (mode === 'pomodoro' && active.config.pomodoro) {
+    const focus = active.config.pomodoro.focusMin * MIN;
+    const idx = isBreak ? view.block : view.block - 1; // during a break, preview the next block
+    goalRange = { fromMs: idx * focus, toMs: (idx + 1) * focus };
+  }
+  const cellsNow = Math.floor(view.studiedMs / CELL_MS);
+  const honeyCaption =
+    sceneState === 'done'
+      ? 'All done. Look at that comb!'
+      : sceneState === 'break'
+        ? 'Your bee is resting. Break time doesn’t make honey.'
+        : sceneState === 'paused'
+          ? 'Paused. Your bee is waiting for you.'
+          : `${cellsNow} honey ${cellsNow === 1 ? 'cell' : 'cells'} · next cell in ${formatClock(CELL_MS - (view.studiedMs % CELL_MS))}`;
 
   function openFinish() {
     haptic('tap', data.settings.haptics);
@@ -140,18 +177,34 @@ export default function Session() {
         )}
       </div>
 
-      <div className={`timer-stage${isBreak ? ' is-break' : ''}${!view.running && !view.done ? ' is-paused' : ''}`}>
-        <div className={`ring-timer${mode === 'stopwatch' ? ' ring-wrap' : ''}`}>
-          <ProgressRing value={ringProgress} size={compact ? 224 : 280} stroke={12} label={`${stateLabel}. ${formatClock(view.displayMs)} ${mode === 'stopwatch' ? 'elapsed' : 'remaining'}`}>
-            <div role="timer" aria-label="Session timer" className="timer-readout">
+      <div className={`timer-stage${isBreak ? ' is-break' : ''}${!view.running && !view.done ? ' is-paused' : ''}${scene !== 'minimal' ? ' has-scene' : ''}`}>
+        {scene === 'minimal' ? (
+          <div className={`ring-timer${mode === 'stopwatch' ? ' ring-wrap' : ''}`}>
+            <ProgressRing value={ringProgress} size={compact ? 224 : 280} stroke={12} label={`${stateLabel}. ${formatClock(view.displayMs)} ${mode === 'stopwatch' ? 'elapsed' : 'remaining'}`}>
+              <div role="timer" aria-label="Session timer" className="timer-readout">
+                <span className="timer-digits">{formatClock(view.displayMs)}</span>
+                <span className="timer-state">
+                  {isBreak ? <Icon name="coffee" size={16} /> : null}
+                  {stateLabel}
+                </span>
+              </div>
+            </ProgressRing>
+          </div>
+        ) : (
+          <>
+            <div className="scene-wrap">
+              {scene === 'car' && car ? <CarScene car={car} progress={carProgress} state={sceneState} /> : <HoneycombScene studiedMs={view.studiedMs} state={sceneState} goal={goalRange} />}
+            </div>
+            {scene === 'honeycomb' && <p className="scene-caption">{honeyCaption}</p>}
+            <div role="timer" aria-label="Session timer" className="timer-readout timer-readout-inline">
               <span className="timer-digits">{formatClock(view.displayMs)}</span>
               <span className="timer-state">
                 {isBreak ? <Icon name="coffee" size={16} /> : null}
                 {stateLabel}
               </span>
             </div>
-          </ProgressRing>
-        </div>
+          </>
+        )}
         <p className="sr-only" role="status">
           {spokenDuration(view.studiedMs)} studied. {stateLabel}.
         </p>

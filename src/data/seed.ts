@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weeklyGoalMin: 8 * 60,
   pomodoro: { focusMin: 25, breakMin: 5, longBreakMin: 15, cyclesBeforeLong: 4 },
   theme: 'system',
+  scene: 'honeycomb',
   keepAwake: true,
   sound: true,
   haptics: true,
@@ -102,11 +103,13 @@ export function createSeed(now = Date.now()): AppData {
     exams,
     friends,
     active: null,
+    garage: [],
+    builds: {},
   };
 }
 
 export function emptyData(): AppData {
-  return { version: 1, settings: { ...DEFAULT_SETTINGS }, subjects: [], sessions: [], exams: [], friends: [], active: null };
+  return { version: 1, settings: { ...DEFAULT_SETTINGS }, subjects: [], sessions: [], exams: [], friends: [], active: null, garage: [], builds: {} };
 }
 
 export const PRESET_COUNTDOWNS = [25, 45, 60, 90];

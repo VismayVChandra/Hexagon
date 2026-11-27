@@ -55,3 +55,36 @@ describe('seed data', () => {
     expect(seed.active).toBeNull();
   });
 });
+
+describe('scenes, garage and builds', () => {
+  it('defaults the scene to honeycomb and starts with an empty garage', () => {
+    const parsed = parseAppData(JSON.parse(JSON.stringify(emptyData())))!;
+    expect(parsed.settings.scene).toBe('honeycomb');
+    expect(parsed.garage).toEqual([]);
+    expect(parsed.builds).toEqual({});
+  });
+  it('keeps valid garage items and build progress, and drops junk', () => {
+    const d = JSON.parse(JSON.stringify(emptyData()));
+    d.settings.scene = 'car';
+    d.garage = [{ carId: 'supercar', at: 5 }, { carId: 7 }, 'x'];
+    d.builds = { 'street-coupe': 120000, bad: -5, worse: 'lots' };
+    const parsed = parseAppData(d)!;
+    expect(parsed.settings.scene).toBe('car');
+    expect(parsed.garage).toEqual([{ carId: 'supercar', at: 5 }]);
+    expect(parsed.builds).toEqual({ 'street-coupe': 120000 });
+  });
+  it('rejects an unknown scene', () => {
+    const d = JSON.parse(JSON.stringify(emptyData()));
+    d.settings.scene = 'disco';
+    expect(parseAppData(d)!.settings.scene).toBe('honeycomb');
+  });
+  it('loads data saved before scenes existed', () => {
+    const d = JSON.parse(JSON.stringify(emptyData()));
+    delete d.garage;
+    delete d.builds;
+    delete d.settings.scene;
+    const parsed = parseAppData(d)!;
+    expect(parsed.garage).toEqual([]);
+    expect(parsed.settings.scene).toBe('honeycomb');
+  });
+});

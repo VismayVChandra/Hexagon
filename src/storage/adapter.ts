@@ -47,6 +47,7 @@ function sanitizeSettings(v: unknown): Settings {
       cyclesBeforeLong: Math.round(clamp(p.cyclesBeforeLong, 1, 10, d.pomodoro.cyclesBeforeLong)),
     },
     theme: s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system',
+    scene: s.scene === 'car' || s.scene === 'minimal' ? s.scene : 'honeycomb',
     keepAwake: typeof s.keepAwake === 'boolean' ? s.keepAwake : d.keepAwake,
     sound: typeof s.sound === 'boolean' ? s.sound : d.sound,
     haptics: typeof s.haptics === 'boolean' ? s.haptics : d.haptics,
@@ -92,6 +93,8 @@ function sanitizeActive(v: unknown): ActiveSession | null {
     lastSeenAt: isNum(v.lastSeenAt) ? v.lastSeenAt : v.startedAt,
     friendIds: strArr(v.friendIds),
     roomId: isStr(v.roomId) ? v.roomId : undefined,
+    scene: v.scene === 'car' || v.scene === 'minimal' || v.scene === 'honeycomb' ? v.scene : undefined,
+    carId: isStr(v.carId) ? v.carId : undefined,
   };
 }
 
@@ -116,6 +119,8 @@ export function parseAppData(raw: unknown): AppData | null {
       breakMs: isNum(x.breakMs) ? Math.max(0, x.breakMs) : 0,
       friendIds: strArr(x.friendIds),
       roomId: isStr(x.roomId) ? x.roomId : undefined,
+      scene: x.scene === 'car' || x.scene === 'minimal' || x.scene === 'honeycomb' ? x.scene : undefined,
+      carId: isStr(x.carId) ? x.carId : undefined,
       manual: x.manual === true ? true : undefined,
       demo: x.demo === true ? true : undefined,
     }));
@@ -149,7 +154,12 @@ export function parseAppData(raw: unknown): AppData | null {
         demo: true as const,
       };
     });
-  return { version: 1, settings: sanitizeSettings(raw.settings), subjects, sessions, exams, friends, active: sanitizeActive(raw.active) };
+  const garage = (Array.isArray(raw.garage) ? raw.garage : [])
+    .filter((x): x is Record<string, unknown> => isObj(x) && isStr(x.carId) && isNum(x.at))
+    .map((x) => ({ carId: x.carId as string, at: x.at as number }));
+  const builds: Record<string, number> = {};
+  if (isObj(raw.builds)) for (const [k, v] of Object.entries(raw.builds)) if (isNum(v) && v > 0) builds[k] = v;
+  return { version: 1, settings: sanitizeSettings(raw.settings), subjects, sessions, exams, friends, active: sanitizeActive(raw.active), garage, builds };
 }
 
 export class LocalStorageAdapter implements StudyStorage {

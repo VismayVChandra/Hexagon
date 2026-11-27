@@ -9,9 +9,15 @@ import { Icon } from './Icon';
 export function SummaryCard({ summary, subject, onDismiss }: { summary: SessionSummary; subject?: Subject; onDismiss: () => void }) {
   const milestone = summary.streakExtended && STREAK_MILESTONES.includes(summary.streakDays);
   const short = summary.studiedMs < MIN;
-  const title = summary.goalReached ? 'Daily goal reached' : short ? 'Session saved' : 'Nice work';
+  const title = summary.car?.completed ? 'Car complete' : summary.goalReached ? 'Daily goal reached' : short ? 'Session saved' : 'Nice work';
 
   const wins: { icon: 'flame' | 'flag' | 'check'; text: string }[] = [];
+  if (summary.cellsAdded > 0) wins.push({ icon: 'check', text: `+${summary.cellsAdded} honey ${summary.cellsAdded === 1 ? 'cell' : 'cells'} for your hive` });
+  if (summary.rankUp) wins.push({ icon: 'flag', text: `New bee rank: ${summary.rankUp.to}` });
+  if (summary.goldenEarned) wins.push({ icon: 'flag', text: 'Golden cell earned today' });
+  if (summary.car) {
+    wins.push(summary.car.completed ? { icon: 'flag', text: `${summary.car.name} finished and added to your garage` } : { icon: 'check', text: `${summary.car.name}: ${Math.floor(summary.car.progress * 100)}% built` });
+  }
   if (milestone) wins.push({ icon: 'flag', text: `Milestone: ${summary.streakDays} days in a row` });
   else if (summary.streakExtended && summary.streakDays > 1) wins.push({ icon: 'flame', text: `${summary.streakDays}-day streak` });
   else if (summary.streakExtended) wins.push({ icon: 'flame', text: 'Streak started' });
