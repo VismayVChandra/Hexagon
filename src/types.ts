@@ -4,7 +4,14 @@ export type TimerMode = 'stopwatch' | 'countdown' | 'pomodoro';
 export type Scene = 'honeycomb' | 'car' | 'minimal';
 
 /** A background sound that can play during a session. */
-export type AmbientSound = 'off' | 'rain' | 'brown' | 'waves';
+export type AmbientSound = 'off' | 'rain' | 'storm' | 'waves' | 'stream' | 'forest' | 'fire' | 'night' | 'wind' | 'brown' | 'white';
+
+/** Every ambient sound that can be chosen (also used to check saved settings). */
+export const AMBIENT_IDS: readonly AmbientSound[] = ['off', 'rain', 'storm', 'waves', 'stream', 'forest', 'fire', 'night', 'wind', 'brown', 'white'];
+
+/** The voice used for timer sounds: bell, marimba, harp or a plain beep. */
+export type CueTone = 'bell' | 'marimba' | 'harp' | 'beep';
+export const CUE_TONES: readonly CueTone[] = ['bell', 'marimba', 'harp', 'beep'];
 
 /** One line of a session's plan: something to get done before finishing. */
 export interface PlanTask {
@@ -128,8 +135,17 @@ export interface Settings {
   /** The scene used for the next session (remembered from the last one). */
   scene: Scene;
   keepAwake: boolean;
+  /** Timer sounds: start, pause, block end, timer done, rewards. */
   sound: boolean;
-  /** Background sound while studying (rain, brown noise, waves). Generated on the device, so it works offline. */
+  /** Which voice the timer sounds use. */
+  cueTone: CueTone;
+  /** Timer sound volume, 0 to 1. */
+  cueVolume: number;
+  /** Ring the "time's up" alarm three times (until the student taps), not just once. */
+  cueRepeat: boolean;
+  /** Stopwatch: a soft chime every this many minutes (0 = never). */
+  stopwatchChimeMin: number;
+  /** Background sound while studying (rain, waves, forest, brown noise and more). Generated on the device, so it works offline. */
   ambient: AmbientSound;
   /** Background sound volume, 0 to 1. */
   ambientVolume: number;
@@ -144,6 +160,18 @@ export interface Settings {
   /** Privacy: send anonymous usage counts (opens, sessions started) so the app's owner can see what is used. On by default, with a note on Home. */
   analytics: boolean;
   analyticsNoticeDismissed: boolean;
+  /** Notifications the student asked for (the browser's permission is separate). */
+  notify: boolean;
+  /** Tell me when a timer, focus block or break ends while Hexagon is in the background. */
+  notifyTimer: boolean;
+  /** Tell me what I earned (honey, cars, streaks, daily goal). */
+  notifyRewards: boolean;
+  /** Gently remind me if I haven't studied for a day or more. */
+  notifyNudges: boolean;
+  /** Hour of day (0 to 23) for come-back reminders. */
+  nudgeHour: number;
+  /** The one-time "want notifications?" card on Home was answered or dismissed. */
+  notifyPromptDismissed: boolean;
 }
 
 export interface AppData {

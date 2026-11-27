@@ -14,7 +14,7 @@ createRoot(document.getElementById('root')!).render(
 );
 
 // Offline app shell. Production builds only: a service worker in dev would serve stale files.
-// This caches the app itself — it does not enable push notifications or background sync.
+// This caches the app itself and, for installed apps that allow it, sends come-back reminders (no push server involved).
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register(new URL('sw.js', document.baseURI)).catch(() => {

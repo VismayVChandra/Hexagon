@@ -12,6 +12,8 @@ import { CarArt } from '../components/CarArt';
 import { CarPhoto } from '../components/CarPhoto';
 import { Bar, DemoBadge, Field, FriendAvatar, StateBadge, SubjectDot } from '../components/bits';
 import { Icon } from '../components/Icon';
+import { SoundPicker } from '../components/SessionExtras';
+import { AMBIENT_SOUNDS } from '../lib/ambient';
 
 const MODES: { id: TimerMode; label: string; blurb: string }[] = [
   { id: 'stopwatch', label: 'Stopwatch', blurb: 'Count up. Stop when you’re done.' },
@@ -313,6 +315,15 @@ export default function Study() {
                 )}
                 <p className="hint">You’ll tick these off during the session.</p>
               </div>
+            </div>
+          </details>
+          <details className="more">
+            <summary>
+              <span>Study sound</span>
+              <small className="muted">{AMBIENT_SOUNDS.find((a) => a.id === data.settings.ambient)?.label ?? 'Off'}</small>
+            </summary>
+            <div className="more-body">
+              <SoundPicker canPreview />
             </div>
           </details>
         </section>

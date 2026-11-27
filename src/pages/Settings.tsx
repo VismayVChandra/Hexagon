@@ -10,6 +10,7 @@ import type { ThemePref } from '../types';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
 import { AdminLink } from '../components/AdminLink';
+import { NotificationSettings, SoundSettings } from '../components/AlertSettings';
 import { dayKey } from '../lib/time';
 import type { Settings } from '../types';
 
@@ -164,8 +165,11 @@ export default function SettingsPage() {
           description={wakeLockSupported ? 'Uses your browser’s screen wake lock.' : 'Not supported by this browser. The timer stays accurate regardless.'}
         />
         <Toggle id="s-haptics" checked={settings.haptics} onChange={(v) => updateSettings({ haptics: v })} disabled={!hapticsSupported} label="Vibration feedback" description={hapticsSupported ? 'A light buzz when you start, pause and finish.' : 'Not supported by this browser (iPhone browsers don’t allow it).'} />
-        <Toggle id="s-sound" checked={settings.sound} onChange={(v) => updateSettings({ sound: v })} label="Chime when a block ends" description="Plays only while Hexagon is open on screen. It can’t alert you in the background." />
       </section>
+
+      <SoundSettings />
+
+      <NotificationSettings />
 
       <section className="card" id="privacy" aria-labelledby="priv-h" tabIndex={-1}>
         <h2 id="priv-h" className="card-title">
@@ -305,7 +309,7 @@ export default function SettingsPage() {
         <ul className="facts">
           <li>Timers use real timestamps, so they stay correct if the page is backgrounded, refreshed or reopened.</li>
           <li>{cloudConfigured ? 'Friends use real accounts. Shared focus rooms are simulated demos.' : 'Friends, rooms and presence are simulated demos — no server is connected.'}</li>
-          <li>No push notifications or background alerts. Chimes only play while the app is open.</li>
+          <li>Notifications and sounds are made on your device, with no push server. Timer alerts work while the app is running; come-back reminders need the installed app on Android Chrome and are best-effort.</li>
           <li>Works offline after the first load.</li>
         </ul>
       </section>

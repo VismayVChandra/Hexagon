@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FocusRating, PlanTask } from '../types';
 import { addActiveTask, removeActiveTask, toggleActiveTask, updateSettings, useStore } from '../store/store';
-import { AMBIENT_SOUNDS } from '../lib/ambient';
+import { AMBIENT_SOUNDS, previewAmbient, stopAmbient } from '../lib/ambient';
 import { haptic, primeAudio, showToast } from '../hooks/hooks';
 import { Icon } from './Icon';
 
@@ -70,40 +70,100 @@ export function PlanCard({ tasks }: { tasks: PlanTask[] }) {
   );
 }
 
-/** Pick a background sound. It plays while the timer runs and hushes during breaks and pauses. */
-export function SoundCard() {
+/**
+ * Choose a background sound. While no session is running, tapping one also plays a few seconds of it so you can hear it first.
+ * During a session it just switches, and plays as part of the session.
+ */
+export function SoundPicker({ canPreview, headingId }: { canPreview: boolean; headingId?: string }) {
   const { data } = useStore();
   const { ambient, ambientVolume } = data.settings;
+  const [trying, setTrying] = useState<string | null>(null);
   const current = AMBIENT_SOUNDS.find((s) => s.id === ambient) ?? AMBIENT_SOUNDS[0];
+
+  function choose(id: (typeof AMBIENT_SOUNDS)[number]['id']) {
+    primeAudio(); // a tap is what lets the browser play sound
+    updateSettings({ ambient: id });
+    if (!canPreview) return;
+    if (id === 'off') {
+      stopAmbient();
+      setTrying(null);
+    } else {
+      previewAmbient(id, ambientVolume, 12, () => setTrying(null));
+      setTrying(id);
+    }
+  }
+
+  const groups: { label: string; ids: string[] }[] = [
+    { label: 'Nature', ids: AMBIENT_SOUNDS.filter((s) => s.group === 'nature').map((s) => s.id) },
+    { label: 'Steady noise', ids: AMBIENT_SOUNDS.filter((s) => s.group === 'noise').map((s) => s.id) },
+  ];
+
   return (
-    <section className="card" aria-labelledby="sound-h">
-      <h2 id="sound-h" className="card-title">
-        Sound
-      </h2>
-      <div role="radiogroup" aria-labelledby="sound-h" className="chips">
-        {AMBIENT_SOUNDS.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            role="radio"
-            aria-checked={ambient === s.id}
-            className={`chip${ambient === s.id ? ' is-on' : ''}`}
-            onClick={() => {
-              primeAudio(); // a tap is what lets the browser play sound
-              updateSettings({ ambient: s.id });
-            }}
-          >
-            {s.label}
-          </button>
-        ))}
+    <>
+      <div role="radiogroup" aria-label="Study sound" aria-labelledby={headingId}>
+      <div className="chips">
+        <button type="button" role="radio" aria-checked={ambient === 'off'} className={`chip${ambient === 'off' ? ' is-on' : ''}`} onClick={() => choose('off')}>
+          Off
+        </button>
       </div>
-      <p className="muted small">{ambient === 'off' ? 'Study in silence, or add a calm background sound. It’s made on your device, so it works offline.' : `${current.blurb}. Plays while the timer runs, and rests during breaks and pauses.`}</p>
+      {groups.map((g) => (
+        <div key={g.label}>
+          <p className="eyebrow sound-group">{g.label}</p>
+          <div role="group" aria-label={g.label} className="chips">
+            {g.ids.map((id) => {
+              const sound = AMBIENT_SOUNDS.find((x) => x.id === id)!;
+              return (
+                <button key={id} type="button" role="radio" aria-checked={ambient === id} className={`chip${ambient === id ? ' is-on' : ''}`} onClick={() => choose(sound.id)}>
+                  {sound.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      </div>
+      <p className="muted small" role="status">
+        {trying
+          ? `Playing a preview of ${current.label.toLowerCase()}…`
+          : ambient === 'off'
+            ? 'Study in silence, or add a calm background sound. They’re made on your device, so they work offline.'
+            : `${current.blurb}. Plays while the timer runs, and rests during breaks and pauses.`}
+        {trying && (
+          <>
+            {' '}
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => {
+                stopAmbient();
+                setTrying(null);
+              }}
+            >
+              Stop
+            </button>
+          </>
+        )}
+      </p>
       {ambient !== 'off' && (
         <label className="volume">
           <span>Volume</span>
-          <input type="range" min={0} max={1} step={0.05} value={ambientVolume} aria-label="Sound volume" onChange={(e) => updateSettings({ ambientVolume: Number(e.target.value) })} />
+          <input type="range" min={0} max={1} step={0.05} value={ambientVolume} aria-label="Study sound volume" onChange={(e) => updateSettings({ ambientVolume: Number(e.target.value) })} />
         </label>
       )}
+    </>
+  );
+}
+
+/** The sound card on the session page. */
+export function SoundCard() {
+  const { data } = useStore();
+  const running = !!data.active && data.active.resumedAt != null;
+  return (
+    <section className="card" aria-labelledby="sound-h">
+      <h2 id="sound-h" className="card-title">
+        Study sound
+      </h2>
+      <SoundPicker canPreview={!running} headingId="sound-h" />
     </section>
   );
 }

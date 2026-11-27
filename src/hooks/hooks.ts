@@ -158,11 +158,11 @@ export function haptic(kind: keyof typeof PATTERNS, enabled = true) {
   }
 }
 
-// ---------- audio chime (only plays while the app is open) ----------
+// ---------- audio (the shared context; sounds live in lib/sfx.ts and lib/ambient.ts) ----------
 
 let audioCtx: AudioContext | null = null;
 
-/** Call from a user gesture (e.g. the Start button) so later chimes are allowed to play. */
+/** Call from a user gesture (e.g. the Start button) so later sounds are allowed to play. */
 export function primeAudio() {
   try {
     const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -177,30 +177,6 @@ export function primeAudio() {
 /** The shared audio context, once primeAudio has run from a user gesture. */
 export function audioContext(): AudioContext | null {
   return audioCtx;
-}
-
-export function chime(kind: 'start' | 'end') {
-  try {
-    if (!audioCtx) return;
-    const notes = kind === 'end' ? [523.25, 659.25, 783.99] : [659.25, 523.25];
-    const t0 = audioCtx.currentTime + 0.02;
-    notes.forEach((f, i) => {
-      const osc = audioCtx!.createOscillator();
-      const gain = audioCtx!.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = f;
-      const t = t0 + i * 0.22;
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.18, t + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
-      osc.connect(gain).connect(audioCtx!.destination);
-      osc.start(t);
-      osc.stop(t + 0.55);
-    });
-    if ('vibrate' in navigator) navigator.vibrate?.(kind === 'end' ? [120, 60, 120] : 80);
-  } catch {
-    /* ignore */
-  }
 }
 
 // ---------- toasts ----------

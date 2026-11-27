@@ -13,6 +13,10 @@ export const DEFAULT_SETTINGS: Settings = {
   scene: 'honeycomb',
   keepAwake: true,
   sound: true,
+  cueTone: 'bell',
+  cueVolume: 0.7,
+  cueRepeat: true,
+  stopwatchChimeMin: 30,
   ambient: 'off',
   ambientVolume: 0.5,
   haptics: true,
@@ -21,6 +25,12 @@ export const DEFAULT_SETTINGS: Settings = {
   installHintDismissed: false,
   analytics: true,
   analyticsNoticeDismissed: false,
+  notify: false,
+  notifyTimer: true,
+  notifyRewards: true,
+  notifyNudges: true,
+  nudgeHour: 18,
+  notifyPromptDismissed: false,
 };
 
 const TOPICS: Record<string, string[]> = {

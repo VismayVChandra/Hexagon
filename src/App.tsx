@@ -10,6 +10,7 @@ import { formatClock, formatTimeOfDay } from './lib/time';
 import { Icon, Logo } from './components/Icon';
 import { Dialog } from './components/Dialog';
 import { AmbientHost } from './components/AmbientHost';
+import { CueHost } from './components/CueHost';
 import { SubjectDot } from './components/bits';
 import Home from './pages/Home';
 import Study from './pages/Study';
@@ -202,6 +203,7 @@ function Shell() {
 
       <ResumeBar />
       <AmbientHost />
+      <CueHost />
       <ToastHost />
 
       <Dialog open={!!away} onClose={() => resolveAway('keep')} title="Welcome back" small dismissible={false}>

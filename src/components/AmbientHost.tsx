@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useStore } from '../store/store';
 import { useNow } from '../hooks/hooks';
 import { computeView } from '../lib/timer';
-import { resumeAudio, setAmbientVolume, startAmbient, stopAmbient } from '../lib/ambient';
+import { isAmbientPreviewing, resumeAudio, setAmbientVolume, startAmbient, stopAmbient } from '../lib/ambient';
 
 /**
  * Plays the chosen background sound while a session is running, wherever the student is in the app, and hushes it during
@@ -25,7 +25,8 @@ export function AmbientHost() {
 
   useEffect(() => {
     if (!want) {
-      stopAmbient();
+      // A short preview from Settings is not ours to cut off.
+      if (!isAmbientPreviewing()) stopAmbient();
       return;
     }
     let done = false;

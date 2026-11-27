@@ -3021,3 +3021,56 @@ svg.comb-hive {
     transition: none;
   }
 }
+
+/* sounds & notifications */
+.is-dim {
+  opacity: 0.55;
+}
+.sound-group {
+  margin: var(--s-3, 12px) 0 var(--s-1, 4px);
+}
+.mini-title {
+  font-size: 0.95rem;
+  margin: var(--s-4, 16px) 0 var(--s-2, 8px);
+}
+.cue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.cue-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+}
+.cue-list li:first-child {
+  border-top: 0;
+}
+.cue-list li > div {
+  display: grid;
+}
+.prompt-card,
+.comeback-card {
+  border-color: var(--honey, #d4a02c);
+}
+.sound-pill {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
+  transform: translateX(-50%);
+  z-index: 40;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.12));
+  background: var(--surface, #fff);
+  color: var(--text, inherit);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}

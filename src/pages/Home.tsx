@@ -6,6 +6,7 @@ import { SummaryCard } from '../components/SummaryCard';
 import { HiveCard } from '../components/HiveCard';
 import { GarageCard } from '../components/GarageCard';
 import { AdminLink, UsageNotice } from '../components/AdminLink';
+import { ComebackCard, NotifyPrompt } from '../components/AlertSettings';
 import { currentStreak, nextMilestone, sessionDay, STREAK_MIN_MS, subjectTotals, sessionsInRange, sum, todayMs, totalsByDay, weekMs } from '../lib/stats';
 import { MIN, addDays, daysBetween, dayKey, formatDayLabel, formatDuration, greeting, relativeDays, weekStartKey, parseDayKey, formatShortDate } from '../lib/time';
 import type { StudySession, Subject } from '../types';
@@ -65,6 +66,8 @@ export default function Home() {
           {name ? `, ${name}` : ''}.
         </h1>
       </header>
+
+      <ComebackCard />
 
       {summary && <SummaryCard summary={summary} subject={subjects.find((s) => s.id === summary.subjectId)} onDismiss={dismissSummary} />}
 
@@ -128,6 +131,7 @@ export default function Home() {
         </section>
       )}
 
+      <NotifyPrompt />
       <UsageNotice />
       <AdminLink />
 

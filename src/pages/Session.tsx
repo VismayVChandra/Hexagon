@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { discardSession, extendActive, finishSession, getState, pauseActive, resumeActive, skipActiveBreak, updateSettings, useStore } from '../store/store';
-import { chime, haptic, showToast, useMediaQuery, useNow, useWakeLock, wakeLockSupported } from '../hooks/hooks';
+import { haptic, showToast, useMediaQuery, useNow, useWakeLock, wakeLockSupported } from '../hooks/hooks';
 import { computeView, modeLabel } from '../lib/timer';
 import { dayKey, formatClock, formatDuration, spokenDuration, MIN } from '../lib/time';
 import { todayMs } from '../lib/stats';
@@ -52,15 +52,6 @@ export default function Session() {
   // Building a car: progress carries over from earlier sessions, so add what's already in the workshop.
   const car = active?.scene === 'car' ? carById(active.carId) : undefined;
   const carProgress = car && view ? ((data.builds[car.id] ?? 0) + view.studiedMs) / buildMs(car) : 0;
-  const carDone = carProgress >= 1;
-  const carWasDone = useRef(carDone);
-  useEffect(() => {
-    if (carDone && !carWasDone.current) {
-      if (data.settings.sound) chime('end');
-      haptic('success', data.settings.haptics);
-    }
-    carWasDone.current = carDone;
-  }, [carDone, data.settings.sound, data.settings.haptics]);
 
   // Space (or K) pauses and resumes, for desktop use. Ignored while typing, on buttons and links, and while a dialog is open.
   useEffect(() => {
@@ -79,18 +70,6 @@ export default function Session() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-
-  // Chime when a block ends or a break ends — only while the app is open and sound is on.
-  const lastKey = useRef<string | null>(null);
-  const phaseKey = view ? `${view.phase}:${view.block}` : null;
-  const phase = view?.phase;
-  useEffect(() => {
-    if (phaseKey == null) return;
-    const prev = lastKey.current;
-    lastKey.current = phaseKey;
-    if (prev == null || prev === phaseKey || !running || !data.settings.sound) return;
-    chime(phase === 'focus' ? 'start' : 'end');
-  }, [phaseKey, phase, running, data.settings.sound]);
 
   // Show the time in the tab title so it's visible when the tab is in the background.
   useEffect(() => {

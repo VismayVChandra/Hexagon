@@ -1,4 +1,5 @@
 import type { ActiveSession, AppData, Exam, FocusRating, Friend, PlanTask, Settings, StudySession, Subject, TimerConfig } from '../types';
+import { AMBIENT_IDS, CUE_TONES } from '../types';
 import { DEFAULT_SETTINGS } from '../data/seed';
 import { migrateCarId } from '../data/cars';
 
@@ -51,7 +52,11 @@ function sanitizeSettings(v: unknown): Settings {
     scene: s.scene === 'car' || s.scene === 'minimal' ? s.scene : 'honeycomb',
     keepAwake: typeof s.keepAwake === 'boolean' ? s.keepAwake : d.keepAwake,
     sound: typeof s.sound === 'boolean' ? s.sound : d.sound,
-    ambient: s.ambient === 'rain' || s.ambient === 'brown' || s.ambient === 'waves' ? s.ambient : 'off',
+    cueTone: CUE_TONES.find((t) => t === s.cueTone) ?? d.cueTone,
+    cueVolume: clamp(s.cueVolume, 0, 1, d.cueVolume),
+    cueRepeat: typeof s.cueRepeat === 'boolean' ? s.cueRepeat : d.cueRepeat,
+    stopwatchChimeMin: [0, 15, 30, 60].includes(s.stopwatchChimeMin as number) ? (s.stopwatchChimeMin as number) : d.stopwatchChimeMin,
+    ambient: AMBIENT_IDS.find((a) => a === s.ambient) ?? 'off',
     ambientVolume: clamp(s.ambientVolume, 0, 1, d.ambientVolume),
     haptics: typeof s.haptics === 'boolean' ? s.haptics : d.haptics,
     sharePresence: typeof s.sharePresence === 'boolean' ? s.sharePresence : false,
@@ -60,6 +65,12 @@ function sanitizeSettings(v: unknown): Settings {
     installHintDismissed: s.installHintDismissed === true,
     analytics: typeof s.analytics === 'boolean' ? s.analytics : d.analytics,
     analyticsNoticeDismissed: s.analyticsNoticeDismissed === true,
+    notify: s.notify === true,
+    notifyTimer: typeof s.notifyTimer === 'boolean' ? s.notifyTimer : d.notifyTimer,
+    notifyRewards: typeof s.notifyRewards === 'boolean' ? s.notifyRewards : d.notifyRewards,
+    notifyNudges: typeof s.notifyNudges === 'boolean' ? s.notifyNudges : d.notifyNudges,
+    nudgeHour: Math.round(clamp(s.nudgeHour, 0, 23, d.nudgeHour)),
+    notifyPromptDismissed: s.notifyPromptDismissed === true,
   };
 }
 

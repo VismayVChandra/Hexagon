@@ -151,3 +151,30 @@ describe('plans, focus ratings and ambient sound', () => {
     expect(ok.settings.ambientVolume).toBe(0.25);
   });
 });
+
+describe('sound and notification settings', () => {
+  const settingsOf = (over: Record<string, unknown>) => {
+    const seed = createSeed();
+    return parseAppData(JSON.parse(JSON.stringify({ ...seed, settings: { ...seed.settings, ...over } })))!.settings;
+  };
+
+  it('accepts every ambient sound and falls back to off for anything unknown', () => {
+    for (const id of ['rain', 'storm', 'waves', 'stream', 'forest', 'fire', 'night', 'wind', 'brown', 'white']) expect(settingsOf({ ambient: id }).ambient).toBe(id);
+    expect(settingsOf({ ambient: 'cafe' }).ambient).toBe('off');
+  });
+
+  it('keeps timer sound choices valid', () => {
+    expect(settingsOf({ cueTone: 'harp', cueVolume: 0.3, stopwatchChimeMin: 15, cueRepeat: false })).toMatchObject({ cueTone: 'harp', cueVolume: 0.3, stopwatchChimeMin: 15, cueRepeat: false });
+    expect(settingsOf({ cueTone: 'laser', cueVolume: 9, stopwatchChimeMin: 7, cueRepeat: 'yes' })).toMatchObject({ cueTone: 'bell', cueVolume: 1, stopwatchChimeMin: 30, cueRepeat: true });
+  });
+
+  it('keeps notifications off until asked for, and the reminder hour in range', () => {
+    const d = settingsOf({});
+    expect(d.notify).toBe(false);
+    expect(d.notifyTimer && d.notifyRewards && d.notifyNudges).toBe(true);
+    expect(settingsOf({ notify: 'true' }).notify).toBe(false);
+    expect(settingsOf({ nudgeHour: 99 }).nudgeHour).toBe(23);
+    expect(settingsOf({ nudgeHour: 'x' }).nudgeHour).toBe(18);
+  });
+});
+
