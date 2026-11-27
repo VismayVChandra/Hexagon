@@ -85,3 +85,7 @@ export function spiral(n: number): Axial[] {
 export function cellCenter(c: Axial, size: number): { x: number; y: number } {
   return { x: size * Math.sqrt(3) * (c.q + c.r / 2), y: size * 1.5 * c.r };
 }
+
+/** The 3D comb is a fixed, dense dome: this many rings (and cells) cover it, so even a short session looks rich. */
+export const DOME_RINGS = 9;
+export const DOME_CELLS = capacityFor(DOME_RINGS);

@@ -9,8 +9,9 @@ import { CombView } from './CombView';
 export function HiveCard({ sessions, now }: { sessions: StudySession[]; now: number }) {
   const h = hiveSummary(sessions);
   const goldenToday = goldenDayKeys(sessions).has(dayKey(now));
-  // Show the smallest comb that holds what you've made, so it visibly grows into a bigger hive.
-  const capacity = Math.min(COMB_CAPACITY, capacityFor(Math.max(2, ringsFor(h.inCurrent + 1))));
+  // The 3D dome always shows the full comb; the first COMB_CAPACITY cells are this comb and fill up, the rest stay unbuilt.
+  // The drawn fallback shows the smallest comb that holds what you've made.
+  const flatCapacity = Math.min(COMB_CAPACITY, capacityFor(Math.max(2, ringsFor(h.inCurrent + 1))));
   const combs = h.fullCombs;
 
   return (
@@ -23,7 +24,8 @@ export function HiveCard({ sessions, now }: { sessions: StudySession[]; now: num
       </div>
 
       <CombView
-        capacity={capacity}
+        capacity={COMB_CAPACITY}
+        flatCapacity={flatCapacity}
         filled={h.inCurrent}
         label={`Your hive: ${h.cells} honey cells, ${combs} full ${combs === 1 ? 'comb' : 'combs'}`}
         quality="lite"

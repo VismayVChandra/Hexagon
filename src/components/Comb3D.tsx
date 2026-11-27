@@ -1,101 +1,69 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { cellCenter, spiral } from '../lib/hexGeom';
+import { DOME_RINGS, cellCenter, spiral } from '../lib/hexGeom';
 import type { CombProps } from './Comb';
 
-// A real 3D honeycomb: hollow wax tubes lit from one side, honey that rises inside them, and a bee.
-// Units: a cell is 2 wide (outer circumradius 1), neighbouring cells share a wall.
-const RO = 1; // outer circumradius of a cell
-const WALL = 0.1; // wall thickness
-const RI = (Math.sqrt(3) / 2 - WALL) / (Math.sqrt(3) / 2); // circumradius of the hollow
-const H = 1; // height of the walls
-const FLOOR = 0.14; // thickness of the cell floor
-const HONEY_MAX = H - FLOOR - 0.14; // honey height when a cell is full
-const ELEVATION = (50 * Math.PI) / 180; // camera tilt above the comb
+// A honeycomb dome: hundreds of small wax cells following a sphere, each a deep hollow that fills with honey.
+// The grid is the same spiral as the flat comb, so cell i is still the i-th cell filled, from the middle outward.
+const RS = 10; // radius of the sphere the cell rims sit on
+const SPACING = 1.3; // distance between neighbouring cell centres, measured along the surface
+const CORNER = SPACING / Math.sqrt(3); // circumradius of a cell
+const T_RIM = 0.86; // where the flat top of the wall ends (1 = the cell's outer corner)
+const T_HOLE = 0.8; // where the hollow starts, after a small rounded edge
+const BEVEL = 0.07; // the soft edge between the rim and the inside of the cell
+const DEPTH = 0.78; // how deep the hollows go
+const HONEY_MAX = DEPTH - BEVEL - 0.16; // honey height when a cell is full
+const ELEVATION = (58 * Math.PI) / 180; // camera tilt above the dome
 const FOV = 30;
+const THETA_MAX = ((DOME_RINGS + 0.7) * SPACING) / RS; // angular radius of the cap
+const SWAY = 0.3;
 
 const hash = (i: number, k: number) => {
   const s = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
   return s - Math.floor(s);
 };
+const smooth = (a: number, b: number, x: number) => {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
 
-/** A pointy-top hexagon with softly rounded corners, drawn into `path` (x, y plane). */
-function hexPath<P extends THREE.Path>(path: P, R: number, t: number): P {
-  const pts = Array.from({ length: 6 }, (_, k) => {
-    const a = Math.PI / 2 + (k * Math.PI) / 3;
-    return new THREE.Vector2(R * Math.cos(a), R * Math.sin(a));
-  });
-  pts.forEach((V, i) => {
-    const a = V.clone().lerp(pts[(i + 5) % 6], t);
-    const b = V.clone().lerp(pts[(i + 1) % 6], t);
-    if (i === 0) path.moveTo(a.x, a.y);
-    else path.lineTo(a.x, a.y);
-    path.quadraticCurveTo(V.x, V.y, b.x, b.y);
-  });
-  path.closePath();
-  return path;
+/** A point of the flat grid (x, y) laid onto the sphere, keeping distances from the middle: returns the unit direction. */
+function toSphere(px: number, py: number, out = new THREE.Vector3()): THREE.Vector3 {
+  const rho = Math.hypot(px, py);
+  if (rho < 1e-9) return out.set(0, 1, 0);
+  const th = rho / RS;
+  const s = Math.sin(th) / rho;
+  return out.set(px * s, Math.cos(th), py * s);
 }
 
-/** Extrudes a shape upward (+y) with rounded edges; the result spans y from 0 to `height`. */
-function prism(shape: THREE.Shape, height: number, bevel: number): THREE.BufferGeometry {
-  const g = new THREE.ExtrudeGeometry(shape, {
-    depth: height - 2 * bevel,
-    bevelEnabled: true,
-    bevelThickness: bevel,
-    bevelSize: bevel * 0.8,
-    bevelOffset: -bevel * 0.8,
-    bevelSegments: 3,
-    curveSegments: 4,
-  });
-  g.translate(0, 0, bevel);
-  g.rotateX(-Math.PI / 2);
-  return g;
+interface Cell {
+  index: number;
+  dir: THREE.Vector3; // direction of the cell's centre
+  hole: THREE.Vector3[]; // directions of the hollow's six corners
+  theta: number;
 }
 
-function waxGeometry(): THREE.BufferGeometry {
-  const outer = hexPath(new THREE.Shape(), RO, 0.1);
-  outer.holes.push(hexPath(new THREE.Path(), RI, 0.1));
-  const tube = prism(outer, H, 0.035);
-  const floorShape = hexPath(new THREE.Shape(), RO, 0.1);
-  const floor = new THREE.ExtrudeGeometry(floorShape, { depth: FLOOR, bevelEnabled: false, curveSegments: 4 });
-  floor.rotateX(-Math.PI / 2);
-  // Vertex colours: pale wax walls, a darker, deeper floor.
-  const paint = (g: THREE.BufferGeometry, r: number, gr: number, b: number) => {
-    const count = g.attributes.position.count;
-    const arr = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) arr.set([r, gr, b], i * 3);
-    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
-  };
-  paint(tube, 1, 1, 1);
-  paint(floor, 0.42, 0.26, 0.1);
-  const merged = mergeGeometries([tube, floor]);
-  tube.dispose();
-  floor.dispose();
-  return merged ?? new THREE.BufferGeometry();
-}
-
-function honeyGeometry(): THREE.BufferGeometry {
-  // Unit height; the instance's y scale sets the real height. The rounded edge gives a glossy, domed surface.
-  return prism(hexPath(new THREE.Shape(), RI * 0.985, 0.1), 1, 0.07);
-}
-
-/** Soft blotches so the wax isn't perfectly flat-coloured. */
+/** Fine wax grain and soft blotches, used for colour and bump. */
 function waxTexture(): THREE.CanvasTexture {
+  const size = 256;
   const c = document.createElement('canvas');
-  c.width = c.height = 256;
+  c.width = c.height = size;
   const g = c.getContext('2d');
   if (g) {
-    g.fillStyle = '#fff';
-    g.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 700; i++) {
-      const x = hash(i, 1) * 256;
-      const y = hash(i, 2) * 256;
-      const r = 3 + hash(i, 3) * 16;
+    const img = g.createImageData(size, size);
+    for (let i = 0; i < size * size; i++) {
+      const v = 205 + hash(i, 9) * 50;
+      img.data.set([v, v, v, 255], i * 4);
+    }
+    g.putImageData(img, 0, 0);
+    for (let i = 0; i < 260; i++) {
+      const x = hash(i, 1) * size;
+      const y = hash(i, 2) * size;
+      const r = 5 + hash(i, 3) * 22;
       const gr = g.createRadialGradient(x, y, 0, x, y, r);
-      gr.addColorStop(0, `rgba(130,84,18,${0.05 + hash(i, 4) * 0.13})`);
-      gr.addColorStop(1, 'rgba(130,84,18,0)');
+      gr.addColorStop(0, `rgba(90,40,10,${0.06 + hash(i, 4) * 0.12})`);
+      gr.addColorStop(1, 'rgba(90,40,10,0)');
       g.fillStyle = gr;
       g.fillRect(x - r, y - r, r * 2, r * 2);
     }
@@ -117,32 +85,28 @@ function makeBee(): BeeRig {
   const root = new THREE.Group();
   const body = new THREE.Group();
   root.add(body);
-  const amber = new THREE.MeshStandardMaterial({ color: 0xf5b21c, roughness: 0.4 });
+  const amber = new THREE.MeshStandardMaterial({ color: 0xf5b21c, roughness: 0.4, emissive: 0x6a3a00, emissiveIntensity: 0.25 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x241608, roughness: 0.65 });
-  const fuzz = new THREE.MeshStandardMaterial({ color: 0x6e4c1c, roughness: 0.95 });
+  const fuzz = new THREE.MeshStandardMaterial({ color: 0x7a5420, roughness: 0.95 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x0b0805, roughness: 0.1, metalness: 0.2 });
   const sph = new THREE.SphereGeometry(1, 22, 16);
   const add = (mat: THREE.Material, pos: [number, number, number], scale: [number, number, number]) => {
     const m = new THREE.Mesh(sph, mat);
     m.position.set(...pos);
     m.scale.set(...scale);
-    m.castShadow = true;
     body.add(m);
     return m;
   };
-  // striped abdomen
   add(amber, [-0.3, 0, 0], [0.55, 0.3, 0.3]);
   for (const x of [-0.12, -0.36, -0.6]) {
     const r = 0.3 * Math.sqrt(1 - ((x + 0.3) / 0.55) ** 2) + 0.012;
     add(dark, [x, 0, 0], [0.085, r, r]);
   }
   add(dark, [-0.84, 0, 0], [0.06, 0.07, 0.07]);
-  // thorax and head
   add(fuzz, [0.3, 0.02, 0], [0.27, 0.26, 0.26]);
   add(dark, [0.62, 0, 0], [0.2, 0.19, 0.2]);
   add(glass, [0.7, 0.06, 0.13], [0.08, 0.085, 0.07]);
   add(glass, [0.7, 0.06, -0.13], [0.08, 0.085, 0.07]);
-  // antennae
   const feeler = new THREE.CylinderGeometry(0.012, 0.012, 0.3, 6);
   for (const s of [1, -1]) {
     const a = new THREE.Mesh(feeler, dark);
@@ -150,7 +114,6 @@ function makeBee(): BeeRig {
     a.rotation.set(0.35 * s, 0, -0.9);
     body.add(a);
   }
-  // wings pivot at the thorax
   const wingGeo = new THREE.SphereGeometry(1, 18, 8);
   const wingMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, roughness: 0.15, side: THREE.DoubleSide, depthWrite: false });
   const wings = [1, -1].map((s) => {
@@ -163,8 +126,153 @@ function makeBee(): BeeRig {
     body.add(pivot);
     return pivot;
   }) as [THREE.Group, THREE.Group];
-  root.scale.setScalar(0.8);
+  root.scale.setScalar(1.5);
   return { root, body, wings };
+}
+
+interface Built {
+  cells: Cell[];
+  wax: THREE.BufferGeometry;
+  honey: THREE.BufferGeometry;
+  honeyPos: Float32Array;
+  rings: THREE.BufferGeometry;
+}
+
+/** Builds the dome: one static wax mesh, one honey mesh whose heights change, and one set of goal outlines. */
+function buildDome(capacity: number): Built {
+  const axial = spiral(1 + 3 * DOME_RINGS * (DOME_RINGS + 1));
+  const present = new Set(axial.map((a) => `${a.q},${a.r}`));
+  const centers = axial.map((a) => cellCenter(a, CORNER));
+  const angles = Array.from({ length: 6 }, (_, k) => ((90 + 60 * k) * Math.PI) / 180);
+  // the neighbour across edge k (between corner k and corner k + 1)
+  const across = [
+    [-1, 1],
+    [-1, 0],
+    [0, -1],
+    [1, -1],
+    [1, 0],
+    [0, 1],
+  ];
+
+  const cellsOut: Cell[] = [];
+  const pos: number[] = [];
+  const col: number[] = [];
+
+  const cRim = new THREE.Color('#f3a944');
+  const cEdge = new THREE.Color('#ffd391');
+  const cWall = new THREE.Color('#c4601a');
+  const cMid = new THREE.Color('#8a3b10');
+  const cDeep = new THREE.Color('#2a1007');
+  const A = new THREE.Vector3();
+  const B = new THREE.Vector3();
+  const N = new THREE.Vector3();
+
+  const pushTri = (pa: THREE.Vector3, ca: THREE.Color, pb: THREE.Vector3, cb: THREE.Color, pc: THREE.Vector3, cc: THREE.Color, hint: THREE.Vector3) => {
+    A.subVectors(pb, pa);
+    B.subVectors(pc, pa);
+    N.crossVectors(A, B);
+    const flip = N.dot(hint) < 0;
+    const order = flip ? [pa, pc, pb] : [pa, pb, pc];
+    const cols = flip ? [ca, cc, cb] : [ca, cb, cc];
+    for (let i = 0; i < 3; i++) {
+      pos.push(order[i].x, order[i].y, order[i].z);
+      col.push(cols[i].r, cols[i].g, cols[i].b);
+    }
+  };
+  const pushQuad = (p0: THREE.Vector3, c0: THREE.Color, p1: THREE.Vector3, c1: THREE.Color, p2: THREE.Vector3, c2: THREE.Color, p3: THREE.Vector3, c3: THREE.Color, hint: THREE.Vector3) => {
+    pushTri(p0, c0, p1, c1, p2, c2, hint);
+    pushTri(p0, c0, p2, c2, p3, c3, hint);
+  };
+
+  const ringPts = (cx: number, cy: number, t: number) => angles.map((a) => toSphere(cx + CORNER * t * Math.cos(a), cy + CORNER * t * Math.sin(a)));
+  const at = (d: THREE.Vector3, h: number) => d.clone().multiplyScalar(h);
+  const shade = (base: THREE.Color, m: number) => base.clone().multiplyScalar(m);
+
+  const ringPos: number[] = [];
+
+  axial.forEach((a, i) => {
+    const c = centers[i];
+    const dc = toSphere(c.x, c.y);
+    const dA = ringPts(c.x, c.y, 1);
+    const dB = ringPts(c.x, c.y, T_RIM);
+    const dC = ringPts(c.x, c.y, T_HOLE);
+    const theta = Math.hypot(c.x, c.y) / RS;
+    // each cell is a little darker or lighter; the rim of the dome fades into shadow, and cells beyond the capacity are unbuilt
+    const m = (0.9 + hash(i, 11) * 0.2) * (1 - 0.7 * smooth(0.55, 1.0, theta / THETA_MAX)) * (i < capacity ? 1 : 0.4);
+    const rim = shade(cRim, m);
+    const edge = shade(cEdge, m);
+    const wallTop = shade(cWall, m);
+    const wallMidC = shade(cMid, m);
+    const deep = shade(cDeep, m);
+    const hTop = RS;
+    const hBev = RS - BEVEL;
+    const hBot = RS - DEPTH;
+    const mid = at(dc, hBot);
+
+    for (let k = 0; k < 6; k++) {
+      const k2 = (k + 1) % 6;
+      pushQuad(at(dA[k], hTop), rim, at(dA[k2], hTop), rim, at(dB[k2], hTop), rim, at(dB[k], hTop), rim, dc);
+      pushQuad(at(dB[k], hTop), edge, at(dB[k2], hTop), edge, at(dC[k2], hBev), wallTop, at(dC[k], hBev), wallTop, dc);
+      const hm = (hBev + hBot) / 2;
+      const wallMid = at(dC[k], hm).add(at(dC[k2], hm)).multiplyScalar(0.5);
+      const inward = at(dc, hm).sub(wallMid);
+      const hq = RS - DEPTH * 0.42;
+      pushQuad(at(dC[k], hBev), wallTop, at(dC[k2], hBev), wallTop, at(dC[k2], hq), wallMidC, at(dC[k], hq), wallMidC, inward);
+      pushQuad(at(dC[k], hq), wallMidC, at(dC[k2], hq), wallMidC, at(dC[k2], hBot), deep, at(dC[k], hBot), deep, inward);
+      pushTri(mid, deep, at(dC[k], hBot), deep, at(dC[k2], hBot), deep, dc);
+      // outer wall where the dome ends
+      const [dq, dr] = across[k];
+      if (!present.has(`${a.q + dq},${a.r + dr}`)) {
+        const outward = at(dA[k], hTop).add(at(dA[k2], hTop)).multiplyScalar(0.5).sub(at(dc, hTop));
+        pushQuad(at(dA[k], hTop), rim, at(dA[k2], hTop), rim, at(dA[k2], hBot - 0.3), deep, at(dA[k], hBot - 0.3), deep, outward);
+      }
+    }
+
+    cellsOut.push({ index: i, dir: dc, hole: dC, theta });
+    // thin outline for goal cells, just above the rim
+    const dO = ringPts(c.x, c.y, 0.97);
+    const dI = ringPts(c.x, c.y, 0.9);
+    for (let k = 0; k < 6; k++) {
+      const k2 = (k + 1) % 6;
+      const q = [at(dO[k], hTop + 0.015), at(dO[k2], hTop + 0.015), at(dI[k2], hTop + 0.015), at(dI[k], hTop + 0.015)];
+      for (const idx of [0, 1, 2, 0, 2, 3]) ringPos.push(q[idx].x, q[idx].y, q[idx].z);
+    }
+  });
+
+  // uv from position, so the grain follows the surface
+  const uv: number[] = [];
+  for (let i = 0; i < pos.length; i += 3) uv.push(pos[i] * 0.45 + pos[i + 1] * 0.2, pos[i + 2] * 0.45 + pos[i + 1] * 0.13);
+  const wax = new THREE.BufferGeometry();
+  wax.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  wax.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  wax.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  wax.computeVertexNormals();
+  wax.computeBoundingSphere();
+
+  // honey: a domed fan per cell (centre + six corners). Heights are written each time a level changes.
+  const n = axial.length;
+  const honeyPos = new Float32Array(n * 7 * 3);
+  const honeyNor = new Float32Array(n * 7 * 3);
+  const idx: number[] = [];
+  const v = new THREE.Vector3();
+  cellsOut.forEach((cell, i) => {
+    const base = i * 7;
+    honeyNor.set([cell.dir.x, cell.dir.y, cell.dir.z], base * 3);
+    cell.hole.forEach((d, k) => {
+      v.copy(d).sub(cell.dir).multiplyScalar(6).add(d).normalize();
+      honeyNor.set([v.x, v.y, v.z], (base + 1 + k) * 3);
+      idx.push(base, base + 1 + ((k + 1) % 6), base + 1 + k);
+    });
+  });
+  const honey = new THREE.BufferGeometry();
+  honey.setAttribute('position', new THREE.BufferAttribute(honeyPos, 3).setUsage(THREE.DynamicDrawUsage));
+  honey.setAttribute('normal', new THREE.BufferAttribute(honeyNor, 3));
+  honey.setIndex(idx);
+
+  const rings = new THREE.BufferGeometry();
+  rings.setAttribute('position', new THREE.Float32BufferAttribute(ringPos, 3));
+
+  return { cells: cellsOut, wax, honey, honeyPos, rings };
 }
 
 interface Live {
@@ -179,7 +287,10 @@ interface Api {
   invalidate: () => void;
 }
 
-/** The 3D honeycomb. Loaded on demand (it carries the three.js library); see CombView for the fallback. */
+/**
+ * The 3D honeycomb dome. Loaded on demand (it carries the three.js library); see CombView for the fallback.
+ * `capacity` is how many cells (counted from the middle) belong to this comb; the rest of the dome is shown unbuilt.
+ */
 export default function Comb3D({ capacity, filled, frac = 0, bee = null, goal = null, glow = false, label, className }: CombProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const live = useRef<Live>({ filled, frac, bee, goal, glow });
@@ -198,9 +309,11 @@ export default function Comb3D({ capacity, filled, frac = 0, bee = null, goal = 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.autoUpdate = false; // the light never moves, so the dome's shadows are drawn once
+    renderer.shadowMap.needsUpdate = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.95;
+    renderer.toneMappingExposure = 1.05;
     const canvas = renderer.domElement;
     canvas.style.touchAction = 'pan-y';
     canvas.setAttribute('aria-hidden', 'true');
@@ -211,110 +324,95 @@ export default function Comb3D({ capacity, filled, frac = 0, bee = null, goal = 
     const roomEnv = new RoomEnvironment();
     const envTarget = pmrem.fromScene(roomEnv, 0.04);
     scene.environment = envTarget.texture;
-    scene.environmentIntensity = 0.7;
+    scene.environmentIntensity = 0.3;
 
-    // ---- cells ----
-    const cells = spiral(capacity).map((c) => {
-      const p = cellCenter(c, RO);
-      return { x: p.x, z: p.y };
-    });
+    const built = buildDome(Math.max(1, capacity));
+    const { cells } = built;
     const n = cells.length;
-    const reach = Math.max(...cells.map((c) => Math.hypot(c.x, c.z))) + RO;
-    // How far the comb reaches sideways and in depth as the camera sways a little around it.
-    let reachX = 0;
-    let reachZ = 0;
-    for (let k = -4; k <= 4; k++) {
-      const a = (k / 4) * 0.32;
-      for (const c of cells) {
-        reachX = Math.max(reachX, Math.abs(c.x * Math.cos(a) + c.z * Math.sin(a)));
-        reachZ = Math.max(reachZ, Math.abs(-c.x * Math.sin(a) + c.z * Math.cos(a)));
-      }
-    }
-    reachX += RO;
-    reachZ += RO;
+    const cap = Math.max(0, Math.min(n, Math.floor(capacity)));
 
     const tex = waxTexture();
-    const waxGeo = waxGeometry();
-    const waxMat = new THREE.MeshStandardMaterial({ color: 0xdca13a, roughness: 0.62, map: tex, bumpMap: tex, bumpScale: 0.6, vertexColors: true });
-    const wax = new THREE.InstancedMesh(waxGeo, waxMat, n);
+    const waxMat = new THREE.MeshLambertMaterial({ vertexColors: true, map: tex, bumpMap: tex, bumpScale: 1.1 });
+    const wax = new THREE.Mesh(built.wax, waxMat);
     wax.castShadow = true;
     wax.receiveShadow = true;
-    const dummy = new THREE.Object3D();
-    const col = new THREE.Color();
-    const topY: number[] = [];
-    cells.forEach((c, i) => {
-      const sy = 0.94 + hash(i, 5) * 0.12;
-      topY.push(H * sy);
-      dummy.position.set(c.x, 0, c.z);
-      dummy.scale.set(1, sy, 1);
-      dummy.updateMatrix();
-      wax.setMatrixAt(i, dummy.matrix);
-      const v = 0.86 + hash(i, 6) * 0.2;
-      col.setRGB(v, v * (0.96 + hash(i, 7) * 0.06), v * (0.88 + hash(i, 8) * 0.1));
-      wax.setColorAt(i, col);
-    });
     scene.add(wax);
 
-    const honeyGeo = honeyGeometry();
     const honeyMat = new THREE.MeshPhysicalMaterial({
-      color: 0xe58a06,
-      roughness: 0.1,
+      color: 0xffb41c,
+      roughness: 0.12,
       clearcoat: 1,
-      clearcoatRoughness: 0.04,
-      emissive: 0x9a3e00,
-      emissiveIntensity: 0.22,
-      envMapIntensity: 2.6,
+      clearcoatRoughness: 0.05,
+      emissive: 0xff8a00,
+      emissiveIntensity: 0.55,
+      envMapIntensity: 2,
     });
-    const honey = new THREE.InstancedMesh(honeyGeo, honeyMat, n);
+    const honey = new THREE.Mesh(built.honey, honeyMat);
     honey.receiveShadow = true;
     honey.frustumCulled = false;
     scene.add(honey);
     const shown = new Float32Array(n).fill(-1);
+    const hBot = RS - DEPTH;
 
-    const ringGeo = new THREE.RingGeometry(0.9, 0.985, 6, 1);
-    ringGeo.rotateZ(Math.PI / 2);
-    ringGeo.rotateX(-Math.PI / 2);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0xfff2c0, transparent: true, opacity: 0.95, depthWrite: false });
-    const rings = new THREE.InstancedMesh(ringGeo, ringMat, n);
-    rings.count = 0;
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xfff0c4, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
+    const rings = new THREE.Mesh(built.rings, ringMat);
     rings.frustumCulled = false;
     scene.add(rings);
+    built.rings.setDrawRange(0, 0);
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(reach * 5, reach * 5), new THREE.ShadowMaterial({ opacity: 0.32 }));
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.02;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    // ---- light ----
-    scene.add(new THREE.HemisphereLight(0xfff3da, 0x7a5320, 0.5));
-    const sun = new THREE.DirectionalLight(0xfff0d2, 2.1);
-    sun.position.set(-5.5, 9, 4.5);
+    // ---- light: a strong warm key from one side, the far side falling into shadow ----
+    scene.add(new THREE.HemisphereLight(0xa070a8, 0x3a1608, 0.85));
+    const sun = new THREE.DirectionalLight(0xffb066, 3.6);
     sun.castShadow = true;
-    const shadowRes = n > 61 ? 1024 : 2048;
-    sun.shadow.mapSize.set(shadowRes, shadowRes);
+    sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera;
-    const ext = reach + 3;
-    sc.left = -ext;
-    sc.right = ext;
-    sc.top = ext;
-    sc.bottom = -ext;
-    sc.near = 1;
-    sc.far = 40;
-    sun.shadow.bias = -0.0004;
-    sun.shadow.normalBias = 0.03;
-    sun.shadow.radius = 4;
+    sc.left = -RS * 1.15;
+    sc.right = RS * 1.15;
+    sc.top = RS * 1.15;
+    sc.bottom = -RS * 1.15;
+    sc.near = 2;
+    sc.far = 70;
+    sun.shadow.bias = -0.0003;
+    sun.shadow.normalBias = 0.04;
+    sun.shadow.radius = 3;
     scene.add(sun);
+    scene.add(sun.target);
+    const rimLight = new THREE.DirectionalLight(0x9a6ad0, 0.9);
+    scene.add(rimLight);
+    sun.position.set(-17, 14 + RS * 0.8, 11);
+    sun.target.position.set(0, RS * 0.8, 0);
+    rimLight.position.set(16, 6 + RS * 0.8, -10);
 
     // ---- bee ----
     const beeRig = makeBee();
     beeRig.root.visible = false;
     scene.add(beeRig.root);
 
+    // the bee's shadow on the dome: a soft dark disc lying on the surface under it
+    const blob = new THREE.Mesh(
+      new THREE.CircleGeometry(1, 28),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
+    );
+    blob.visible = false;
+    blob.scale.set(1.0, 0.8, 1);
+    scene.add(blob);
+    const Z = new THREE.Vector3(0, 0, 1);
+    const surf = new THREE.Vector3();
+
     // ---- camera ----
-    const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 200);
-    const target = new THREE.Vector3(0, 0.5, 0);
-    let dist = 20;
+    const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 300);
+    const target = new THREE.Vector3(0, RS * 0.82, 0);
+    let dist = 40;
+    const placeCamera = (az: number, d: number) => {
+      camera.position.set(
+        target.x + Math.sin(az) * Math.cos(ELEVATION) * d,
+        target.y + Math.sin(ELEVATION) * d,
+        target.z + Math.cos(az) * Math.cos(ELEVATION) * d,
+      );
+      camera.lookAt(target);
+    };
+    const probe = cells.map((c) => c.dir.clone().multiplyScalar(RS));
+    const pv = new THREE.Vector3();
     const fit = () => {
       const w = Math.max(1, host.clientWidth);
       const h = Math.max(1, host.clientHeight);
@@ -323,9 +421,27 @@ export default function Comb3D({ capacity, filled, frac = 0, bee = null, goal = 
       canvas.style.height = '100%';
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      const tan = Math.tan((FOV * Math.PI) / 360);
-      const halfV = reachZ * Math.sin(ELEVATION) + H * Math.cos(ELEVATION) + 0.8;
-      dist = Math.max(halfV / tan, (reachX + 0.2) / (tan * camera.aspect)) * 1.03;
+      // the nearest distance at which the whole dome stays in view through the sway
+      const worst = (d: number) => {
+        let m = 0;
+        for (const az of [-SWAY, 0, SWAY]) {
+          placeCamera(az, d);
+          camera.updateMatrixWorld();
+          for (const p of probe) {
+            pv.copy(p).project(camera);
+            m = Math.max(m, Math.abs(pv.x), Math.abs(pv.y));
+          }
+        }
+        return m;
+      };
+      let lo = 8;
+      let hi = 160;
+      for (let k = 0; k < 18; k++) {
+        const mid = (lo + hi) / 2;
+        if (worst(mid) > 0.94) lo = mid;
+        else hi = mid;
+      }
+      dist = hi;
     };
 
     // ---- interaction ----
@@ -361,7 +477,14 @@ export default function Comb3D({ capacity, filled, frac = 0, bee = null, goal = 
     let raf = 0;
     let last = performance.now();
     let lost = false;
+    const Y = new THREE.Vector3(0, 1, 0);
     const beePos = new THREE.Vector3();
+    const beeQ = new THREE.Quaternion();
+    const nQ = new THREE.Quaternion();
+    const hQ = new THREE.Quaternion();
+    const ex = new THREE.Vector3();
+    const ez = new THREE.Vector3();
+    const want = new THREE.Vector3();
     let beeInit = false;
 
     const tick = (now: number) => {
@@ -375,10 +498,10 @@ export default function Comb3D({ capacity, filled, frac = 0, bee = null, goal = 
       let moving = false;
 
       // honey levels rise smoothly toward their targets
-      const done = Math.min(Math.max(0, Math.floor(s.filled)), n);
+      const done = Math.min(Math.max(0, Math.floor(s.filled)), cap);
       let honeyChanged = false;
       for (let i = 0; i < n; i++) {
-        const goalLevel = i < done ? 1 : i === done ? Math.max(0, Math.min(1, s.frac)) : 0;
+        const goalLevel = i < done ? 1 : i === done && i < cap ? Math.max(0, Math.min(1, s.frac)) : 0;
         let v = shown[i];
         if (v < 0 || reduce) v = goalLevel;
         else {
@@ -389,31 +512,29 @@ export default function Comb3D({ capacity, filled, frac = 0, bee = null, goal = 
         if (v !== shown[i]) {
           shown[i] = v;
           honeyChanged = true;
-          const h = HONEY_MAX * v;
-          dummy.position.set(cells[i].x, FLOOR - 0.001, cells[i].z);
-          dummy.scale.set(1, Math.max(h, 0.0001), 1);
-          dummy.updateMatrix();
-          honey.setMatrixAt(i, dummy.matrix);
+          const h = v <= 0.002 ? hBot - 0.3 : hBot + 0.02 + HONEY_MAX * v;
+          const cell = cells[i];
+          const base = i * 7;
+          const ctr = h + (v > 0.002 ? 0.05 : 0);
+          built.honeyPos.set([cell.dir.x * ctr, cell.dir.y * ctr, cell.dir.z * ctr], base * 3);
+          for (let k = 0; k < 6; k++) {
+            const d = cell.hole[k];
+            built.honeyPos.set([d.x * h, d.y * h, d.z * h], (base + 1 + k) * 3);
+          }
         }
       }
-      if (honeyChanged) honey.instanceMatrix.needsUpdate = true;
+      if (honeyChanged) built.honey.attributes.position.needsUpdate = true;
 
-      // goal cells get a glowing rim
-      let ringCount = 0;
+      // goal cells get a glowing outline
       const g = s.goal;
       if (g) {
-        for (let i = Math.max(g.from, done); i < Math.min(g.to, n); i++) {
-          dummy.position.set(cells[i].x, topY[i] + 0.012, cells[i].z);
-          dummy.scale.set(1, 1, 1);
-          dummy.updateMatrix();
-          rings.setMatrixAt(ringCount++, dummy.matrix);
-        }
-      }
-      rings.count = ringCount;
-      rings.instanceMatrix.needsUpdate = true;
-      ringMat.opacity = continuous ? 0.7 + 0.25 * Math.sin(t * 2.4) : 0.9;
+        const from = Math.max(g.from, done);
+        const to = Math.min(g.to, cap);
+        built.rings.setDrawRange(from * 36, Math.max(0, to - from) * 36);
+      } else built.rings.setDrawRange(0, 0);
+      ringMat.opacity = continuous ? 0.65 + 0.3 * Math.sin(t * 2.4) : 0.9;
 
-      const glowTarget = s.glow ? 0.8 : 0.22;
+      const glowTarget = s.glow ? 1 : 0.55;
       honeyMat.emissiveIntensity += (glowTarget - honeyMat.emissiveIntensity) * Math.min(1, dt * 3);
       if (Math.abs(glowTarget - honeyMat.emissiveIntensity) > 0.01) moving = true;
 
@@ -423,51 +544,61 @@ export default function Comb3D({ capacity, filled, frac = 0, bee = null, goal = 
         if (Math.abs(userAz) < 0.002) userAz = 0;
       }
       if (userAz !== 0) moving = true;
-      const az = userAz + (continuous ? 0.25 * Math.sin(t * 0.4) : 0);
-      camera.position.set(
-        target.x + Math.sin(az) * Math.cos(ELEVATION) * dist,
-        target.y + Math.sin(ELEVATION) * dist,
-        target.z + Math.cos(az) * Math.cos(ELEVATION) * dist,
-      );
-      camera.lookAt(target);
+      const az = userAz + (continuous ? SWAY * 0.85 * Math.sin(t * 0.4) : 0);
+      placeCamera(az, dist);
 
-      // the bee
+      // the bee hovers over the cell being filled, standing on the dome's surface normal
       const mode = s.bee;
       beeRig.root.visible = mode != null;
+      blob.visible = mode != null;
       if (mode) {
-        const bi = done < n ? done : n - 1;
-        const c = cells[bi];
-        let hx = c.x;
-        let hz = c.z;
-        let hy = H + 0.14;
+        const bi = Math.min(done, n - 1);
+        const cell = cells[bi];
+        nQ.setFromUnitVectors(Y, cell.dir);
+        ex.set(1, 0, 0).applyQuaternion(nQ);
+        ez.set(0, 0, 1).applyQuaternion(nQ);
+        let hy: number;
+        let ox: number;
+        let oz = 0;
         let heading = 0.6;
         let tilt = 0;
         if (mode === 'fly') {
           const a = reduce ? 0.8 : t * 1.3;
-          hx += Math.cos(a) * 0.42;
-          hz += Math.sin(a) * 0.42;
-          hy = H + 0.95 + (reduce ? 0 : Math.sin(t * 3.1) * 0.09);
+          ox = Math.cos(a) * 1.1;
+          oz = Math.sin(a) * 1.1;
+          hy = 2.5 + (reduce ? 0 : Math.sin(t * 3.1) * 0.15);
           heading = Math.atan2(-Math.cos(a), -Math.sin(a));
           tilt = -0.14;
         } else if (mode === 'still') {
-          hy = H + 0.5 + (reduce ? 0 : Math.sin(t * 2) * 0.05);
-          hx += 0.25;
+          hy = 1.2 + (reduce ? 0 : Math.sin(t * 2) * 0.08);
+          ox = 0.5;
         } else {
-          hx += 0.3;
+          hy = 0.25;
+          ox = 0.55;
         }
+        want.copy(cell.dir).multiplyScalar(RS + hy).addScaledVector(ex, ox).addScaledVector(ez, oz);
         if (!beeInit) {
-          beePos.set(hx, hy, hz);
+          beePos.copy(want);
+          beeQ.copy(nQ);
           beeInit = true;
         } else {
-          beePos.lerp(new THREE.Vector3(hx, hy, hz), Math.min(1, dt * 7));
+          beePos.lerp(want, Math.min(1, dt * 7));
+          beeQ.slerp(nQ, Math.min(1, dt * 5));
         }
         beeRig.root.position.copy(beePos);
-        beeRig.root.rotation.y = heading;
+        surf.copy(beePos).normalize();
+        blob.position.copy(surf).multiplyScalar(RS + 0.05);
+        blob.quaternion.setFromUnitVectors(Z, surf);
+        const lift = Math.max(0, beePos.length() - RS);
+        blob.scale.setScalar(0.8 + lift * 0.18);
+        (blob.material as THREE.MeshBasicMaterial).opacity = mode === 'rest' ? 0.3 : Math.max(0.15, 0.42 - lift * 0.08);
+        hQ.setFromAxisAngle(Y, heading);
+        beeRig.root.quaternion.copy(beeQ).multiply(hQ);
         beeRig.body.rotation.z = tilt;
         const amp = reduce ? 0.2 : mode === 'fly' ? 0.2 + 0.55 * Math.sin(t * 52) : mode === 'still' ? 0.2 + 0.2 * Math.sin(t * 14) : 0.1;
         beeRig.wings[0].rotation.x = -(0.25 + amp);
         beeRig.wings[1].rotation.x = 0.25 + amp;
-        if (Math.hypot(beePos.x - hx, beePos.y - hy, beePos.z - hz) > 0.01) moving = true;
+        if (beePos.distanceTo(want) > 0.02) moving = true;
       }
 
       renderer.render(scene, camera);
@@ -483,6 +614,7 @@ export default function Comb3D({ capacity, filled, frac = 0, bee = null, goal = 
     };
     const onRestored = () => {
       lost = false;
+      renderer.shadowMap.needsUpdate = true;
       shown.fill(-1);
       invalidate();
     };
@@ -516,9 +648,6 @@ export default function Comb3D({ capacity, filled, frac = 0, bee = null, goal = 
           (Array.isArray(m) ? m : [m]).forEach((x) => x.dispose());
         }
       });
-      wax.dispose();
-      honey.dispose();
-      rings.dispose();
       tex.dispose();
       envTarget.dispose();
       roomEnv.dispose();

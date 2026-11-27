@@ -1,6 +1,6 @@
 import { Component, Suspense, lazy, type ReactNode } from 'react';
 import { CELL_MS } from '../lib/hive';
-import { capacityFor, ringsFor } from '../lib/hexGeom';
+import { DOME_CELLS, capacityFor, ringsFor } from '../lib/hexGeom';
 import { CombSvg, type BeeMode, type CombProps } from './Comb';
 
 // The 3D scene carries the three.js library, so it is fetched only when a comb is on screen.
@@ -30,9 +30,12 @@ class Guard extends Component<{ fallback: ReactNode; children: ReactNode }, { fa
   }
 }
 
-/** The honeycomb: a real 3D scene where the device supports it, otherwise the drawn version. */
-export function CombView(props: CombProps) {
-  const flat = <CombSvg {...props} />;
+/**
+ * The honeycomb: a 3D dome where the device supports it, otherwise the drawn flat comb.
+ * `capacity` is how many cells of the dome count as this comb (the rest stay unbuilt); `flatCapacity` sizes the drawn fallback.
+ */
+export function CombView({ flatCapacity, ...props }: CombProps & { flatCapacity?: number }) {
+  const flat = <CombSvg {...props} capacity={flatCapacity ?? props.capacity} />;
   if (!hasWebGL()) return flat;
   return (
     <Guard fallback={flat}>
@@ -56,11 +59,12 @@ export function HoneycombScene({ studiedMs, state, goal }: SceneProps) {
   const frac = (studiedMs % CELL_MS) / CELL_MS;
   const goalTo = goal ? Math.ceil(goal.toMs / CELL_MS) : 0;
   const rings = Math.min(6, Math.max(2, ringsFor(Math.max(cells + 1, goalTo))));
-  const capacity = capacityFor(rings);
+  const flatCapacity = capacityFor(rings);
   const bee: BeeMode = state === 'working' ? 'fly' : state === 'break' ? 'rest' : 'still';
   return (
     <CombView
-      capacity={capacity}
+      capacity={DOME_CELLS}
+      flatCapacity={flatCapacity}
       filled={cells}
       frac={state === 'done' ? 0 : frac}
       bee={bee}
