@@ -41,5 +41,15 @@ function precacheServiceWorker(): Plugin {
 export default defineConfig({
   base: './',
   plugins: [react(), precacheServiceWorker()],
+  build: {
+    rollupOptions: {
+      output: {
+        // three.js is shared by the honeycomb and the car workshop. Keep it in its own file so it is fetched only when one of them is on screen.
+        manualChunks(id: string) {
+          if (id.includes('node_modules/three/')) return 'three';
+        },
+      },
+    },
+  },
   test: { environment: 'node', include: ['src/**/*.test.ts'] },
 });

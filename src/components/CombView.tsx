@@ -7,7 +7,7 @@ import { CombSvg, type BeeMode, type CombProps } from './Comb';
 const Comb3D = lazy(() => import('./Comb3D'));
 
 let webgl: boolean | null = null;
-function hasWebGL(): boolean {
+export function hasWebGL(): boolean {
   if (webgl != null) return webgl;
   try {
     const c = document.createElement('canvas');
@@ -20,7 +20,7 @@ function hasWebGL(): boolean {
   return webgl;
 }
 
-class Guard extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+export class Guard extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };

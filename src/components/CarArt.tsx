@@ -1,6 +1,10 @@
-import { useId } from 'react';
+import { Suspense, lazy, useId } from 'react';
 import { PARTS, currentPart, partStates, type BodyStyle, type Car } from '../data/cars';
 import { roundedHexPath } from '../lib/hexGeom';
+import { Guard, hasWebGL } from './CombView';
+
+// The 3D workshop carries three.js, so it is fetched only when a car is being built.
+const Car3D = lazy(() => import('./Car3D'));
 
 /** Side-view outlines per car (viewBox 200x100, facing right, wheels at x=50 and x=150). */
 interface Shape {
@@ -205,8 +209,18 @@ export function CarScene({ car, progress, state }: CarSceneProps) {
         : 'Gathering parts…';
   return (
     <div className={`car-scene${done ? ' is-done' : ''}`}>
-      <div className="workbench">
-        <CarArt car={car} progress={progress} spinning={state === 'working' && !done} shine={done} label={`${car.name}, ${pct}% built`} />
+      <div className="workbench is-3d">
+        {(() => {
+          const flat = <CarArt car={car} progress={progress} spinning={state === 'working' && !done} shine={done} label={`${car.name}, ${pct}% built`} />;
+          if (!hasWebGL()) return flat;
+          return (
+            <Guard fallback={flat}>
+              <Suspense fallback={<div className="car-3d" aria-hidden="true" />}>
+                <Car3D car={car} progress={progress} state={state} label={`${car.name}, ${pct}% built`} />
+              </Suspense>
+            </Guard>
+          );
+        })()}
       </div>
       <p className="scene-caption" aria-live="off">
         {caption}
