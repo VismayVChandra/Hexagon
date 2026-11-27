@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CARS, TIERS, buildMs, carsInTier } from '../data/cars';
+import { CARS, LETTERS, TIERS, buildMs, buildTimeLabel, carsInTier, carsWithLetter, type Car } from '../data/cars';
 import { useStore } from '../store/store';
 import { Bar } from '../components/bits';
 import { CarArt } from '../components/CarArt';
@@ -10,6 +11,25 @@ import { CAR_PHOTOS } from '../data/carPhotos';
 export default function Garage() {
   const { data } = useStore();
   const owned = new Set(data.garage.map((g) => g.carId));
+  const [view, setView] = useState<'tier' | 'az'>('tier');
+
+  const grid = (cars: Car[], showTime: boolean) => (
+    <ul className="garage-grid">
+      {cars.map((car) => {
+        const has = owned.has(car.id);
+        const progress = has ? 1 : Math.min(1, (data.builds[car.id] ?? 0) / buildMs(car));
+        return (
+          <li key={car.id} className={has ? 'is-owned' : ''}>
+            {has ? <CarPhoto car={car} /> : <CarArt car={car} locked label={`${car.name}, ${Math.floor(progress * 100)}% built`} />}
+            {!has && progress > 0 && <Bar value={progress} label={`${car.name} build progress`} />}
+            <small className="car-brand">{car.brand}</small>
+            <span className="car-option-name">{car.model}</span>
+            <small className="muted">{has ? 'Built' : `${progress > 0 ? `${Math.floor(progress * 100)}% built` : 'Not started'}${showTime ? ` · ${buildTimeLabel(car)}` : ''}`}</small>
+          </li>
+        );
+      })}
+    </ul>
+  );
 
   return (
     <div className="page">
@@ -20,7 +40,35 @@ export default function Garage() {
         </p>
       </header>
 
-      {TIERS.map((t) => {
+      <div role="radiogroup" aria-label="How to list cars" className="segmented segmented-sm">
+        <button type="button" role="radio" aria-checked={view === 'tier'} className={`segment${view === 'tier' ? ' is-on' : ''}`} onClick={() => setView('tier')}>
+          By tier
+        </button>
+        <button type="button" role="radio" aria-checked={view === 'az'} className={`segment${view === 'az' ? ' is-on' : ''}`} onClick={() => setView('az')}>
+          A to Z
+        </button>
+      </div>
+
+      {view === 'az' &&
+        LETTERS.map((l) => {
+          const cars = carsWithLetter(l);
+          const have = cars.filter((c) => owned.has(c.id)).length;
+          return (
+            <section key={l} className="card" aria-labelledby={`letter-${l}`}>
+              <div className="card-head">
+                <h2 id={`letter-${l}`} className="card-title">
+                  {l}
+                </h2>
+                <span className="muted small">
+                  {have} of {cars.length}
+                </span>
+              </div>
+              {grid(cars, true)}
+            </section>
+          );
+        })}
+
+      {view === 'tier' && TIERS.map((t) => {
         const cars = carsInTier(t.n);
         const have = cars.filter((c) => owned.has(c.id)).length;
         return (
@@ -33,21 +81,7 @@ export default function Garage() {
                 {have} of {cars.length}
               </span>
             </div>
-            <ul className="garage-grid">
-              {cars.map((car) => {
-                const has = owned.has(car.id);
-                const progress = has ? 1 : Math.min(1, (data.builds[car.id] ?? 0) / buildMs(car));
-                return (
-                  <li key={car.id} className={has ? 'is-owned' : ''}>
-                    {has ? <CarPhoto car={car} /> : <CarArt car={car} locked label={`${car.name}, ${Math.floor(progress * 100)}% built`} />}
-                    {!has && progress > 0 && <Bar value={progress} label={`${car.name} build progress`} />}
-                    <small className="car-brand">{car.brand}</small>
-                    <span className="car-option-name">{car.model}</span>
-                    <small className="muted">{has ? 'Built' : progress > 0 ? `${Math.floor(progress * 100)}% built` : 'Not started'}</small>
-                  </li>
-                );
-              })}
-            </ul>
+            {grid(cars, false)}
           </section>
         );
       })}

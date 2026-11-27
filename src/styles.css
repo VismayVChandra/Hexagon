@@ -3086,3 +3086,12 @@ svg.comb-hive {
 .sync-status.is-warn {
   color: var(--danger);
 }
+
+.letter-chips .chip {
+  min-width: 40px;
+  justify-content: center;
+  padding: 0 10px;
+}
+.tier-chips[hidden] {
+  display: none;
+}

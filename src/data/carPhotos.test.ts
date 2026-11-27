@@ -14,7 +14,7 @@ describe('car photos', () => {
   });
   it('only uses freely licensed photos, with an author and a link back to the source', () => {
     for (const [id, p] of Object.entries(CAR_PHOTOS)) {
-      expect(p.license, id).toMatch(/^(CC BY(-SA)? \d|CC0)/);
+      expect(p.license, id).toMatch(/^(CC BY(-SA)? \d|CC0|Public domain)/);
       expect(p.author.length, id).toBeGreaterThan(0);
       expect(p.page, id).toMatch(/^https:\/\/commons\.wikimedia\.org\//);
       if (p.licenseUrl) expect(p.licenseUrl, id).toMatch(/^https:\/\//);

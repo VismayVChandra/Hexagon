@@ -59,7 +59,7 @@ function car(id: string, brand: string, model: string, tier: Tier['n'], style: B
   return { id, brand, model, name: `${brand} ${model}`, tier, buildMin: TIERS[tier - 1].buildMin, style, color, shade: darken(color, 0.3), accent };
 }
 
-export const CARS: Car[] = [
+const ALL_CARS: Car[] = [
   // Tier 1: Starter (25 min)
   car('maruti-alto', 'Maruti Suzuki', 'Alto', 1, 'hatch', '#E5533D'),
   car('maruti-swift', 'Maruti Suzuki', 'Swift', 1, 'hatch', '#F4B400'),
@@ -123,12 +123,127 @@ export const CARS: Car[] = [
   car('rimac-nevera', 'Rimac', 'Nevera', 6, 'supercar', '#1AA6B7', '#101418'),
   car('aston-martin-valkyrie', 'Aston Martin', 'Valkyrie', 6, 'supercar', '#2F8F83', '#F4D000'),
   car('mercedes-amg-one', 'Mercedes-Benz', 'AMG One', 6, 'supercar', '#C9CED6', '#00A99D'),
+
+  // A to Z: one icon per brand, with a free-licence photo
+  car('abarth-595', 'Abarth', '595', 2, 'hatch', '#D1202F'),
+  car('acura-nsx', 'Acura', 'NSX', 5, 'supercar', '#C1121F'),
+  car('alfa-romeo-giulia', 'Alfa Romeo', 'Giulia', 4, 'sedan', '#A3162A'),
+  car('alpine-a110', 'Alpine', 'A110', 4, 'coupe', '#2D6CDF'),
+  car('ariel-atom', 'Ariel', 'Atom', 4, 'coupe', '#E5533D'),
+  car('bentley-continental-gt', 'Bentley', 'Continental GT', 5, 'coupe', '#1B3A2E'),
+  car('buick-regal', 'Buick', 'Regal', 2, 'sedan', '#8D99AE'),
+  car('byd-seal', 'BYD', 'Seal', 3, 'sedan', '#2F6F9F'),
+  car('cadillac-escalade', 'Cadillac', 'Escalade', 4, 'suv', '#14181F'),
+  car('caterham-seven', 'Caterham', 'Seven', 4, 'coupe', '#2F5D50'),
+  car('chrysler-300', 'Chrysler', '300', 3, 'sedan', '#3A3F45'),
+  car('citroen-2cv', 'Citroën', '2CV', 1, 'hatch', '#E9B44C'),
+  car('cupra-formentor', 'Cupra', 'Formentor', 3, 'suv', '#B87333'),
+  car('dacia-duster', 'Dacia', 'Duster', 1, 'suv', '#7A8B6F'),
+  car('daihatsu-copen', 'Daihatsu', 'Copen', 1, 'coupe', '#E5533D'),
+  car('datsun-240z', 'Datsun', '240Z', 4, 'coupe', '#F5A300'),
+  car('delorean-dmc-12', 'DeLorean', 'DMC-12', 5, 'coupe', '#B8BCC4'),
+  car('dodge-challenger', 'Dodge', 'Challenger', 4, 'coupe', '#6B2D8A'),
+  car('eagle-talon', 'Eagle', 'Talon', 3, 'coupe', '#C5283D'),
+  car('fiat-500', 'Fiat', '500', 1, 'hatch', '#E9E4D8'),
+  car('fisker-ocean', 'Fisker', 'Ocean', 3, 'suv', '#3F8F9A'),
+  car('force-gurkha', 'Force', 'Gurkha', 3, 'suv', '#2F4A3C'),
+  car('ford-mustang', 'Ford', 'Mustang', 4, 'coupe', '#1C69D4'),
+  car('genesis-g80', 'Genesis', 'G80', 3, 'sedan', '#262C36'),
+  car('gmc-hummer-ev', 'GMC', 'Hummer EV', 4, 'suv', '#E9EBEF'),
+  car('gordon-murray-t-50', 'Gordon Murray', 'T.50', 6, 'supercar', '#1F2A4D'),
+  car('great-wall-tank-300', 'Great Wall', 'Tank 300', 3, 'suv', '#4F8A6B'),
+  car('hennessey-venom-f5', 'Hennessey', 'Venom F5', 6, 'supercar', '#2A2D33'),
+  car('hindustan-ambassador', 'Hindustan', 'Ambassador', 2, 'sedan', '#E9E4D8'),
+  car('honda-civic', 'Honda', 'Civic', 2, 'hatch', '#C5283D'),
+  car('hyundai-creta', 'Hyundai', 'Creta', 1, 'suv', '#E9EBEF'),
+  car('ineos-grenadier', 'Ineos', 'Grenadier', 3, 'suv', '#2F4A3C'),
+  car('infiniti-q50', 'Infiniti', 'Q50', 3, 'sedan', '#3A3F45'),
+  car('iso-grifo', 'Iso', 'Grifo', 4, 'coupe', '#A3162A'),
+  car('isuzu-d-max', 'Isuzu', 'D-Max', 2, 'suv', '#8D99AE'),
+  car('jaguar-f-type', 'Jaguar', 'F-Type', 4, 'coupe', '#1F6F4A'),
+  car('jensen-interceptor', 'Jensen', 'Interceptor', 4, 'coupe', '#8D99AE'),
+  car('karma-revero', 'Karma', 'Revero', 4, 'sedan', '#3A3F45'),
+  car('kia-seltos', 'Kia', 'Seltos', 1, 'suv', '#3F7D5C'),
+  car('ktm-x-bow', 'KTM', 'X-Bow', 4, 'supercar', '#F26B21'),
+  car('lancia-delta-integrale', 'Lancia', 'Delta Integrale', 3, 'hatch', '#B22A36'),
+  car('land-rover-defender', 'Land Rover', 'Defender', 4, 'suv', '#4F8A6B'),
+  car('lexus-lc-500', 'Lexus', 'LC 500', 4, 'coupe', '#6D7A8A'),
+  car('lincoln-navigator', 'Lincoln', 'Navigator', 4, 'suv', '#14181F'),
+  car('lotus-emira', 'Lotus', 'Emira', 4, 'coupe', '#F4B400'),
+  car('lucid-air', 'Lucid', 'Air', 4, 'sedan', '#E5E7EB'),
+  car('mahindra-thar', 'Mahindra', 'Thar', 1, 'suv', '#C4694A'),
+  car('maserati-mc20', 'Maserati', 'MC20', 5, 'supercar', '#1C69D4'),
+  car('mazda-mx-5', 'Mazda', 'MX-5', 3, 'coupe', '#C1121F'),
+  car('mg-hector', 'MG', 'Hector', 1, 'suv', '#C5283D'),
+  car('mini-cooper', 'Mini', 'Cooper', 2, 'hatch', '#F4B400'),
+  car('mitsubishi-lancer-evolution', 'Mitsubishi', 'Lancer Evolution', 4, 'sedan', '#C5283D'),
+  car('morgan-plus-four', 'Morgan', 'Plus Four', 4, 'coupe', '#1F6F4A'),
+  car('nio-et7', 'NIO', 'ET7', 3, 'sedan', '#2F3E55'),
+  car('noble-m600', 'Noble', 'M600', 5, 'supercar', '#F26B21'),
+  car('opel-corsa', 'Opel', 'Corsa', 1, 'hatch', '#F4B400'),
+  car('peugeot-208', 'Peugeot', '208', 1, 'hatch', '#3A86C8'),
+  car('plymouth-barracuda', 'Plymouth', 'Barracuda', 4, 'coupe', '#6B2D8A'),
+  car('polestar-2', 'Polestar', '2', 3, 'sedan', '#E5E7EB'),
+  car('pontiac-firebird', 'Pontiac', 'Firebird', 4, 'coupe', '#14181F'),
+  car('premier-padmini', 'Premier', 'Padmini', 1, 'hatch', '#F4B400'),
+  car('qoros-3', 'Qoros', '3', 2, 'sedan', '#3A86C8'),
+  car('ram-1500-trx', 'Ram', '1500 TRX', 4, 'suv', '#C1121F'),
+  car('range-rover-sport', 'Range Rover', 'Sport', 4, 'suv', '#2F4A3C'),
+  car('reliant-robin', 'Reliant', 'Robin', 1, 'hatch', '#E9E4D8'),
+  car('renault-kwid', 'Renault', 'Kwid', 1, 'hatch', '#E5533D'),
+  car('rivian-r1t', 'Rivian', 'R1T', 4, 'suv', '#1D7F5A'),
+  car('saab-900', 'Saab', '900', 2, 'sedan', '#B22A36'),
+  car('seat-leon', 'SEAT', 'Leon', 2, 'hatch', '#C5283D'),
+  car('shelby-cobra', 'Shelby', 'Cobra', 5, 'coupe', '#1C69D4'),
+  car('skoda-octavia', 'Skoda', 'Octavia', 2, 'sedan', '#3F7D5C'),
+  car('smart-fortwo', 'Smart', 'ForTwo', 1, 'hatch', '#F4B400'),
+  car('spyker-c8', 'Spyker', 'C8', 5, 'supercar', '#F26B21'),
+  car('ssangyong-rexton', 'SsangYong', 'Rexton', 2, 'suv', '#7A8B99'),
+  car('ssc-tuatara', 'SSC', 'Tuatara', 6, 'supercar', '#E5533D'),
+  car('subaru-wrx-sti', 'Subaru', 'WRX STI', 3, 'sedan', '#1C69D4'),
+  car('suzuki-jimny', 'Suzuki', 'Jimny', 1, 'suv', '#F4B400'),
+  car('tata-nano', 'Tata', 'Nano', 1, 'hatch', '#F4B400'),
+  car('trabant-601', 'Trabant', '601', 1, 'sedan', '#E9E4D8'),
+  car('tvr-griffith', 'TVR', 'Griffith', 4, 'coupe', '#C1121F'),
+  car('uaz-hunter', 'UAZ', 'Hunter', 2, 'suv', '#4F8A6B'),
+  car('ultima-gtr', 'Ultima', 'GTR', 5, 'supercar', '#E5533D'),
+  car('vauxhall-astra', 'Vauxhall', 'Astra', 1, 'hatch', '#C5283D'),
+  car('vector-w8', 'Vector', 'W8', 5, 'supercar', '#E9EBEF'),
+  car('vinfast-vf-8', 'VinFast', 'VF 8', 3, 'suv', '#E5E7EB'),
+  car('volkswagen-golf', 'Volkswagen', 'Golf', 2, 'hatch', '#3A86C8'),
+  car('volvo-xc90', 'Volvo', 'XC90', 3, 'suv', '#3A3F45'),
+  car('w-motors-lykan-hypersport', 'W Motors', 'Lykan HyperSport', 6, 'supercar', '#C1121F'),
+  car('wiesmann-gt-mf5', 'Wiesmann', 'GT MF5', 5, 'coupe', '#2F5D50'),
+  car('willys-mb', 'Willys', 'MB', 2, 'suv', '#4F6B3C'),
+  car('wuling-hongguang-mini-ev', 'Wuling', 'Hongguang Mini EV', 1, 'hatch', '#E9B8C4'),
+  car('xiaomi-su7', 'Xiaomi', 'SU7', 3, 'sedan', '#3F8F9A'),
+  car('xpeng-p7', 'Xpeng', 'P7', 3, 'sedan', '#3A86C8'),
+  car('yangwang-u9', 'Yangwang', 'U9', 6, 'supercar', '#14181F'),
+  car('yugo-45', 'Yugo', '45', 1, 'hatch', '#C5283D'),
+  car('zastava-750', 'Zastava', '750', 1, 'hatch', '#E9E4D8'),
+  car('zeekr-001', 'Zeekr', '001', 3, 'sedan', '#E5E7EB'),
+  car('zenvo-tsr-s', 'Zenvo', 'TSR-S', 6, 'supercar', '#2A5CAA'),
 ];
+
+/** Every car, cheapest tier first (cars keep their listed order within a tier). */
+export const CARS: Car[] = [...ALL_CARS].sort((a, b) => a.tier - b.tier);
 
 export const carById = (id: string | undefined) => CARS.find((c) => c.id === id);
 export const buildMs = (car: Car) => car.buildMin * MIN;
 export const carsInTier = (n: Tier['n']) => CARS.filter((c) => c.tier === n);
 export const tierOf = (car: Car) => TIERS[car.tier - 1];
+
+/** The first letter of a car's brand, A to Z (accents dropped), for the A to Z view. */
+export function brandLetter(car: Car): string {
+  const c = car.brand.normalize('NFD').replace(/[̀-ͯ]/g, '').charAt(0).toUpperCase();
+  return /[A-Z]/.test(c) ? c : '#';
+}
+/** Every car, by brand and then model. */
+export const CARS_AZ: Car[] = [...CARS].sort((a, b) => a.brand.localeCompare(b.brand, 'en', { sensitivity: 'base' }) || a.model.localeCompare(b.model, 'en', { numeric: true, sensitivity: 'base' }));
+/** The letters that have at least one car. */
+export const LETTERS: string[] = [...new Set(CARS.map(brandLetter))].sort();
+export const carsWithLetter = (letter: string) => CARS_AZ.filter((c) => brandLetter(c) === letter);
+export const buildTimeLabel = (car: Car) => (car.buildMin >= 60 ? `${car.buildMin / 60} h` : `${car.buildMin} min`);
 
 /** Cars from the first version of the garage, so anyone who already built one keeps it. */
 export const LEGACY_CAR_IDS: Record<string, string> = {

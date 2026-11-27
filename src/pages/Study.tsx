@@ -7,7 +7,7 @@ import { useFriendRows } from '../cloud/useFriendRows';
 import { haptic, primeAudio, useNow } from '../hooks/hooks';
 import { formatDuration, MIN } from '../lib/time';
 import type { PomodoroConfig, Scene, TimerMode } from '../types';
-import { CARS, TIERS, buildMs, carById, carsInTier, type Tier } from '../data/cars';
+import { CARS, LETTERS, TIERS, brandLetter, buildMs, buildTimeLabel, carById, carsInTier, carsWithLetter, type Tier } from '../data/cars';
 import { CarArt } from '../components/CarArt';
 import { CarPhoto } from '../components/CarPhoto';
 import { Bar, DemoBadge, Field, FriendAvatar, StateBadge, SubjectDot } from '../components/bits';
@@ -72,6 +72,11 @@ export default function Study() {
   const bestIn = (cars: typeof CARS) => [...cars].filter((c) => !collected.has(c.id)).sort((a, b) => (data.builds[b.id] ?? 0) / buildMs(b) - (data.builds[a.id] ?? 0) / buildMs(a) || a.tier - b.tier)[0];
   const [carId, setCarId] = useState<string | undefined>(() => bestIn(CARS)?.id);
   const [tier, setTier] = useState<number>(() => carById(bestIn(CARS)?.id)?.tier ?? 1);
+  const [carView, setCarView] = useState<'tier' | 'az'>('tier');
+  const [letter, setLetter] = useState<string>(() => {
+    const c = carById(bestIn(CARS)?.id);
+    return c ? brandLetter(c) : (LETTERS[0] ?? 'A');
+  });
   const [scene, setScene] = useState<Scene>(() => (data.settings.scene === 'car' && allCollected ? 'honeycomb' : data.settings.scene));
   const [addingSubject, setAddingSubject] = useState(data.subjects.length === 0);
   const [newSubject, setNewSubject] = useState('');
@@ -418,7 +423,41 @@ export default function Study() {
           {scene === 'car' && (
             <>
               <p className="muted small">Pick a car. The longer you focus, the more of it gets built: frame, wheels, suspension, engine, body, paint. Progress carries over between sessions, and finished cars go in your garage.</p>
-              <div role="radiogroup" aria-label="Car tier" className="tier-chips">
+              <div role="radiogroup" aria-label="How to browse cars" className="segmented segmented-sm">
+                <button type="button" role="radio" aria-checked={carView === 'tier'} className={`segment${carView === 'tier' ? ' is-on' : ''}`} onClick={() => setCarView('tier')}>
+                  By tier
+                </button>
+                <button type="button" role="radio" aria-checked={carView === 'az'} className={`segment${carView === 'az' ? ' is-on' : ''}`} onClick={() => setCarView('az')}>
+                  A to Z
+                </button>
+              </div>
+              {carView === 'az' && (
+                <div role="radiogroup" aria-label="Brand starts with" className="tier-chips letter-chips">
+                  {LETTERS.map((l) => {
+                    const inLetter = carsWithLetter(l);
+                    const left = inLetter.filter((c) => !collected.has(c.id)).length;
+                    return (
+                      <button
+                        key={l}
+                        type="button"
+                        role="radio"
+                        aria-checked={letter === l}
+                        className={`chip${letter === l ? ' is-on' : ''}`}
+                        onClick={() => {
+                          setLetter(l);
+                          const pick = bestIn(inLetter);
+                          if (pick) setCarId(pick.id);
+                          setErrors((e) => omit(e, 'car'));
+                        }}
+                      >
+                        {l}
+                        <span className="sr-only">, {left} left to build</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div role="radiogroup" aria-label="Car tier" className="tier-chips" hidden={carView !== 'tier'}>
                 {TIERS.map((t) => {
                   const inTier = carsInTier(t.n);
                   const left = inTier.filter((c) => !collected.has(c.id)).length;
@@ -442,9 +481,9 @@ export default function Study() {
                   );
                 })}
               </div>
-              <p className="muted small">{TIERS[tier - 1].blurb}</p>
+              <p className="muted small">{carView === 'tier' ? TIERS[tier - 1].blurb : 'Brands from A to Z. Each car shows how long it takes to build.'}</p>
               <div role="radiogroup" aria-label="Choose a car" className="car-picker">
-                {carsInTier(tier as Tier['n']).map((car) => {
+                {(carView === 'tier' ? carsInTier(tier as Tier['n']) : carsWithLetter(letter)).map((car) => {
                   const owned = collected.has(car.id);
                   const progress = owned ? 1 : Math.min(1, (data.builds[car.id] ?? 0) / buildMs(car));
                   const selected = carId === car.id;
@@ -465,7 +504,7 @@ export default function Study() {
                       {!owned && progress > 0 && <Bar value={progress} label={`${car.name} build progress`} />}
                       <small className="car-brand">{car.brand}</small>
                       <span className="car-option-name">{car.model}</span>
-                      <small className="muted">{owned ? 'In your garage' : progress > 0 ? `${Math.floor(progress * 100)}% built` : 'Not started'}</small>
+                      <small className="muted">{owned ? 'In your garage' : `${progress > 0 ? `${Math.floor(progress * 100)}% built` : 'Not started'}${carView === 'az' ? ` · ${buildTimeLabel(car)}` : ''}`}</small>
                     </button>
                   );
                 })}
