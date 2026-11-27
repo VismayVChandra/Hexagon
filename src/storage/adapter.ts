@@ -56,6 +56,8 @@ function sanitizeSettings(v: unknown): Settings {
     shareSubject: typeof s.shareSubject === 'boolean' ? s.shareSubject : false,
     lastSubjectId: isStr(s.lastSubjectId) ? s.lastSubjectId : undefined,
     installHintDismissed: s.installHintDismissed === true,
+    analytics: typeof s.analytics === 'boolean' ? s.analytics : d.analytics,
+    analyticsNoticeDismissed: s.analyticsNoticeDismissed === true,
   };
 }
 

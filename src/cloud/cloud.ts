@@ -4,6 +4,8 @@ import { CloudError, type CloudBackend, type CloudProfile, type CloudUser, type 
 import { HEARTBEAT_MS, desiredPresence, normalizeFriendCode, type PresenceInputs } from './presence';
 import { isValidEmail, passwordProblem } from './validate';
 import { takeAuthRedirect } from './authRedirect';
+import { analytics } from './analytics';
+import type { AdminStats } from './adminStats';
 import { getState as getMain, subscribe as subscribeMain, updateSettings } from '../store/store';
 import { showToast } from '../hooks/hooks';
 import { computeView } from '../lib/timer';
@@ -30,6 +32,8 @@ export interface CloudState {
   lastSyncAt: number | null;
   /** A code from an invite link, waiting until friends is turned on. */
   pendingInvite: string | null;
+  /** This account is the app's owner and can open the dashboard. */
+  isAdmin: boolean;
 }
 
 const CACHE_KEY = 'hexagon.cloud.cache';
@@ -47,6 +51,7 @@ let state: CloudState = {
   syncError: false,
   lastSyncAt: null,
   pendingInvite: readInvite(),
+  isAdmin: false,
 };
 const listeners = new Set<() => void>();
 const set = (patch: Partial<CloudState>) => {
@@ -147,6 +152,7 @@ export async function initCloud() {
   const redirect = takeAuthRedirect(); // set when the person arrived by tapping a link in an email
   try {
     const b = await loadBackend();
+    analytics.attach(b); // anonymous usage counts waiting to be sent (unless the person switched them off)
     b.onSignedOut(() => {
       if (state.phase === 'signed-in') void handleAccountLost();
     });
@@ -183,10 +189,31 @@ async function enterAccount(b: CloudBackend, user: CloudUser) {
     /* optional */
   }
   set({ email: user.email });
+  void checkAdmin(b);
   const profile = await b.getProfile();
   if (!profile) return set({ phase: 'needs-name', error: null });
   set({ phase: 'signed-in', profile, error: null });
   startSync();
+}
+
+/** Ask the server whether this account is the owner. Quietly false if the setup SQL is older or the server is unreachable. */
+async function checkAdmin(b: CloudBackend) {
+  try {
+    set({ isAdmin: await b.isAdmin() });
+  } catch {
+    set({ isAdmin: false });
+  }
+}
+
+/** Totals for the owner dashboard. Throws a friendly CloudError if this account isn't the owner. */
+export async function loadAdminStats(): Promise<AdminStats> {
+  const b = await loadBackend();
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  try {
+    return await b.adminStats(tz); // already converted to safe numbers by the backend
+  } catch (e) {
+    throw e instanceof CloudError ? e : new CloudError(messageOf(e));
+  }
 }
 
 async function guarded(fn: () => Promise<void>) {
@@ -288,14 +315,14 @@ export async function signOut() {
     await b.clearPresence().catch(() => undefined);
     await b.signOut();
     clearCache();
-    set({ phase: 'signed-out', profile: null, friends: [], email: '', notice: null });
+    set({ phase: 'signed-out', profile: null, friends: [], email: '', notice: null, isAdmin: false });
   });
 }
 
 async function handleAccountLost(message?: string) {
   stopSync();
   clearCache();
-  set({ phase: 'signed-out', profile: null, friends: [], syncError: false, error: message ?? null, notice: null });
+  set({ phase: 'signed-out', profile: null, friends: [], syncError: false, error: message ?? null, notice: null, isAdmin: false });
 }
 
 /** Remove my name, code, friendships and status from the server, and sign out. (The email account itself can be reused.) */
@@ -306,7 +333,7 @@ export async function deleteCloudData() {
     await b.deleteMyData();
     await b.signOut();
     clearCache();
-    set({ phase: 'signed-out', profile: null, friends: [], email: '', notice: null });
+    set({ phase: 'signed-out', profile: null, friends: [], email: '', notice: null, isAdmin: false });
   });
 }
 

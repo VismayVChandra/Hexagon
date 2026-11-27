@@ -60,6 +60,33 @@ Never paste an SMTP password or a secret key into the app, the repo, or a chat.
 
 Also: **Authentication → Sign In / Providers → Anonymous sign-ins** can stay **off**. Hexagon doesn't use them.
 
+## 4. Usage counts and the owner dashboard (optional)
+
+The same `schema.sql` also adds anonymous usage counts and an owner-only dashboard. After re-running it (step 1):
+
+1. Sign in to the app once with the account you want as owner (the app needs that account to exist).
+2. **SQL Editor → New query**, paste this with **your own sign-in email**, and **Run**:
+
+   ```sql
+   insert into public.admins (user_id)
+   select id from auth.users where lower(email) = lower('YOUR-EMAIL@example.com')
+   on conflict do nothing;
+   ```
+
+   Don't commit your email anywhere: this statement is meant to be run once in the Supabase website, not saved in the project.
+3. Reopen the app on that account. An **Admin dashboard** card appears on Home and in Settings. Anyone else who opens
+   `#/admin` is refused by the server, not just hidden by the app.
+
+What it counts: devices that opened the app, started or finished a session, built a car or installed the app (a random id
+per device), and, from the database itself, accounts, confirmed emails, friend codes, friendships and who shares status.
+What it never receives: names, subjects, topics, notes, study time or anything typed. People can switch the counts off in
+Settings → Privacy (that also deletes their device's counts), and **Delete my friends data** removes the events tied to
+their account. Events older than about 13 months are removed automatically.
+
+Limits worth knowing: a "visitor" is a device, not a person; counts start the day this version goes live; ad blockers can
+stop the counts; and because anyone can call the counting function, someone determined could inflate numbers (each device is
+capped at 150 events a day, and repeated opens within 30 minutes count once).
+
 ## Keys: what is safe
 
 | Key | Where it lives | Safe in the app? |
@@ -84,7 +111,8 @@ Also: **Authentication → Sign In / Providers → Anonymous sign-ins** can stay
   you can **replace your code any time** (Friends → Replace my code; existing friends stay), and friends can be removed by
   either side.
 - Study sessions, subjects, notes, exams and goals **never leave the device**. The server holds only: your email (for
-  sign-in), display name, friend code, friendships, and your current status.
+  sign-in), display name, friend code, friendships, your current status, and (unless you switch it off) anonymous usage
+  counts such as "opened the app" with a random device id.
 - Status is **off by default**. When on, only your friends see it. The subject is hidden unless you also turn on "Also show my
   subject". The server enforces both, not just the app.
 - Status expires on its own: a few minutes after the app closes, friends see you as offline.
@@ -109,6 +137,7 @@ Also: **Authentication → Sign In / Providers → Anonymous sign-ins** can stay
   probably already confirmed: sign in with your password. Otherwise tap **Forgot your password?** for a fresh link.
 - **A friend never gets the confirmation email** → built-in sender limits (see above), or turn "Confirm email" off.
 - **"The friends database isn't set up yet"** → step 1.
+- **No Admin dashboard card, or "needs the latest setup SQL"** → re-run `supabase/schema.sql` (step 1), then do the owner step (step 4) while signed in with the same email you use in the app. The numbers are empty until people open the new version.
 - **"Wrong email or password"** → use **Forgot your password?** on the Sign in tab.
 
 ## Local development
@@ -116,4 +145,5 @@ Also: **Authentication → Sign In / Providers → Anonymous sign-ins** can stay
 `npm run dev`, then open `http://localhost:5173/?mockcloud=1`. An in-memory fake server (development builds only) lets you
 try friends without a Supabase project. Sign up with any email; the "confirmation" happens by itself after 3 seconds (use an
 email containing `+instant` to skip it). Test friend codes: `482913` (Ava, studying), `715204` (Ben, online), `690138`
-(Chloe, finished).
+(Chloe, finished). To see the owner dashboard with made-up numbers, sign up with an email containing `admin`, for example
+`admin+instant@example.com`.

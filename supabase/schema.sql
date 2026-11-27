@@ -1,4 +1,4 @@
--- Hexagon: friends and presence backend for Supabase.
+-- Hexagon: friends, presence and (optional) anonymous usage counts + owner dashboard backend for Supabase.
 -- Run this in the Supabase dashboard: SQL Editor -> New query -> paste everything -> Run.
 -- Safe to re-run, and it upgrades an earlier version of this script (8-character codes + friend requests)
 -- to the current design (6-digit code, instant friendship when a friend types it in).
@@ -13,6 +13,11 @@
 --     you can replace your code at any time.
 --   * A friend sees your status only if you turned on "share my status". The subject is only included if you also
 --     turned on "share my subject".
+--   * Usage counts (events): the app may record anonymous events such as "opened the app" or "finished a session", tagged
+--     with a random per-device id (and the account id if the person is signed in). Never names, subjects, topics, notes or
+--     study content. People can switch this off in Settings, which also deletes their device's events.
+--   * The owner dashboard: only accounts listed in public.admins can call admin_stats(), which returns totals only.
+--     To make yourself the owner, run the one-line snippet at the very bottom of this file with your own email.
 
 -- ---------------------------------------------------------------- tables
 
@@ -55,6 +60,26 @@ create table if not exists public.code_attempts (
   at      timestamptz not null default now()
 );
 create index if not exists code_attempts_user_idx on public.code_attempts (user_id, at);
+
+-- Anonymous usage events. No policies: only log_event() writes and only admin_stats() reads.
+create table if not exists public.events (
+  id         bigint generated always as identity primary key,
+  device_id  uuid not null,
+  user_id    uuid references auth.users (id) on delete set null,
+  name       text not null check (name in ('app_open', 'session_start', 'session_finish', 'car_built', 'app_installed')),
+  created_at timestamptz not null default now()
+);
+create index if not exists events_created_idx on public.events (created_at);
+create index if not exists events_device_idx  on public.events (device_id, created_at);
+create index if not exists events_name_idx    on public.events (name, created_at);
+
+-- Accounts allowed to open the owner dashboard.
+create table if not exists public.admins (
+  user_id uuid primary key references auth.users (id) on delete cascade
+);
+
+alter table public.events enable row level security;
+alter table public.admins enable row level security;
 
 alter table public.profiles      enable row level security;
 alter table public.friendships   enable row level security;
@@ -289,18 +314,160 @@ begin
      order by p.display_name;
 end $$;
 
--- Delete everything I have stored in the cloud (profile, friendships, presence).
+-- Delete everything I have stored in the cloud (profile, friendships, presence, usage events tied to my account).
 create or replace function public.delete_my_data()
 returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if auth.uid() is null then raise exception 'Not signed in'; end if;
   delete from public.profiles where id = auth.uid();
+  delete from public.events where user_id = auth.uid();
+end $$;
+
+-- ---------------------------------------------------------------- usage counts and owner dashboard
+
+-- Record one anonymous event. Anyone with the public key may call it, so it is strict: a fixed list of event names,
+-- a daily cap per device, and repeats of "opened the app" within 30 minutes are ignored.
+create or replace function public.log_event(p_device uuid, p_name text)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if p_device is null or p_name is null
+     or p_name not in ('app_open', 'session_start', 'session_finish', 'car_built', 'app_installed') then
+    return;
+  end if;
+  if (select count(*) from public.events where device_id = p_device and created_at > now() - interval '1 day') >= 150 then
+    return;
+  end if;
+  if p_name = 'app_open' and exists (
+       select 1 from public.events where device_id = p_device and name = 'app_open' and created_at > now() - interval '30 minutes') then
+    return;
+  end if;
+  if p_name = 'app_installed' and exists (select 1 from public.events where device_id = p_device and name = 'app_installed') then
+    return;
+  end if;
+  insert into public.events (device_id, user_id, name) values (p_device, auth.uid(), p_name);
+  -- Keep the table small: forget events older than about 13 months (done now and then, not on every call).
+  if random() < 0.01 then
+    delete from public.events where created_at < now() - interval '400 days';
+  end if;
+end $$;
+
+-- Delete every event recorded for one device (used when someone switches usage counts off).
+create or replace function public.forget_device(p_device uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if p_device is null then return; end if;
+  delete from public.events where device_id = p_device;
+end $$;
+
+-- Is the signed-in account the owner?
+create or replace function public.is_admin()
+returns boolean
+language sql security definer stable set search_path = public as $$
+  select auth.uid() is not null and exists (select 1 from public.admins where user_id = auth.uid());
+$$;
+
+-- Totals for the owner dashboard, as one JSON document. Owner only. Days are counted in the owner's time zone.
+create or replace function public.admin_stats(p_tz text default 'UTC')
+returns jsonb
+language plpgsql security definer stable set search_path = public as $$
+declare
+  tz     text := coalesce(nullif(btrim(p_tz), ''), 'UTC');
+  today  date;
+  result jsonb;
+begin
+  if auth.uid() is null or not exists (select 1 from public.admins where user_id = auth.uid()) then
+    raise exception 'Not allowed';
+  end if;
+  begin
+    perform now() at time zone tz;
+  exception when others then
+    tz := 'UTC';
+  end;
+  today := (now() at time zone tz)::date;
+
+  select jsonb_build_object(
+    'generated_at', now(),
+    'tz', tz,
+    'tracking_since', (select min(created_at) from public.events),
+    'overview', jsonb_build_object(
+      'visitors_total',     (select count(distinct device_id) from public.events where name = 'app_open'),
+      'visitors_today',     (select count(distinct device_id) from public.events where name = 'app_open' and (created_at at time zone tz)::date = today),
+      'visitors_7d',        (select count(distinct device_id) from public.events where name = 'app_open' and created_at > now() - interval '7 days'),
+      'visitors_30d',       (select count(distinct device_id) from public.events where name = 'app_open' and created_at > now() - interval '30 days'),
+      'returning_visitors', (select count(*) from (
+                               select device_id from public.events where name = 'app_open'
+                               group by device_id having count(distinct (created_at at time zone tz)::date) >= 2) r),
+      'installed',          (select count(distinct device_id) from public.events where name = 'app_installed'),
+      'started_studying',   (select count(distinct device_id) from public.events where name = 'session_start'),
+      'finished_session',   (select count(distinct device_id) from public.events where name = 'session_finish'),
+      'sessions_started',   (select count(*) from public.events where name = 'session_start'),
+      'sessions_finished',  (select count(*) from public.events where name = 'session_finish'),
+      'cars_built',         (select count(*) from public.events where name = 'car_built'),
+      'signed_in_devices',  (select count(distinct device_id) from public.events where user_id is not null),
+      'friend_devices',     (select count(distinct e.device_id) from public.events e
+                              where e.user_id is not null and exists (
+                                select 1 from public.friendships f
+                                 where f.status = 'accepted' and (f.requester = e.user_id or f.addressee = e.user_id)))
+    ),
+    'accounts', jsonb_build_object(
+      'total',          (select count(*) from auth.users),
+      'confirmed',      (select count(*) from auth.users where email_confirmed_at is not null),
+      'named',          (select count(*) from public.profiles),
+      'with_friends',   (select count(*) from public.profiles p
+                          where exists (select 1 from public.friendships f
+                                         where f.status = 'accepted' and (f.requester = p.id or f.addressee = p.id))),
+      'friendships',    (select count(*) from public.friendships where status = 'accepted'),
+      'sharing_status', (select count(*) from public.profiles where share_presence),
+      'sharing_subject',(select count(*) from public.profiles where share_subject),
+      'signups_7d',     (select count(*) from auth.users where created_at > now() - interval '7 days'),
+      'recent', (select coalesce(jsonb_agg(jsonb_build_object(
+                    'at', u.created_at,
+                    'email', left(split_part(u.email, '@', 1), 2) || '***@' || split_part(u.email, '@', 2),
+                    'confirmed', u.email_confirmed_at is not null,
+                    'named', exists (select 1 from public.profiles p where p.id = u.id),
+                    'friends', (select count(*) from public.friendships f
+                                 where f.status = 'accepted' and (f.requester = u.id or f.addressee = u.id))
+                  ) order by u.created_at desc), '[]'::jsonb)
+                 from (select * from auth.users order by created_at desc limit 8) u)
+    ),
+    'daily', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'day', d.day::text,
+               'visitors', coalesce(v.visitors, 0),
+               'new_visitors', coalesce(nv.n, 0),
+               'started', coalesce(v.started, 0),
+               'finished', coalesce(v.finished, 0),
+               'signups', coalesce(s.n, 0)
+             ) order by d.day), '[]'::jsonb)
+        from (select (today - g)::date as day from generate_series(0, 29) g) d
+        left join (
+          select (created_at at time zone tz)::date as day,
+                 count(distinct device_id) filter (where name = 'app_open')      as visitors,
+                 count(distinct device_id) filter (where name = 'session_start') as started,
+                 count(*)                  filter (where name = 'session_finish') as finished
+            from public.events
+           where created_at > now() - interval '32 days'
+           group by 1) v on v.day = d.day
+        left join (
+          select first_day as day, count(*) as n
+            from (select device_id, min((created_at at time zone tz)::date) as first_day
+                    from public.events where name = 'app_open' group by device_id) f
+           group by first_day) nv on nv.day = d.day
+        left join (
+          select (created_at at time zone tz)::date as day, count(*) as n
+            from auth.users where created_at > now() - interval '32 days' group by 1) s on s.day = d.day
+    )
+  ) into result;
+
+  return result;
 end $$;
 
 -- ---------------------------------------------------------------- permissions
 
-revoke all on public.profiles, public.friendships, public.presence, public.code_attempts from anon, authenticated;
+revoke all on public.profiles, public.friendships, public.presence, public.code_attempts, public.events, public.admins from anon, authenticated;
 grant select on public.profiles to authenticated; -- still limited to my own row by the policy above
 
 revoke execute on function public.new_friend_code()                               from public, anon, authenticated;
@@ -313,6 +480,10 @@ revoke execute on function public.add_friend_by_code(text)                      
 revoke execute on function public.remove_friendship(uuid)                         from public, anon;
 revoke execute on function public.list_friends()                                  from public, anon;
 revoke execute on function public.delete_my_data()                                from public, anon;
+revoke execute on function public.log_event(uuid, text)                           from public;
+revoke execute on function public.forget_device(uuid)                             from public;
+revoke execute on function public.is_admin()                                      from public, anon;
+revoke execute on function public.admin_stats(text)                               from public, anon;
 
 grant execute on function public.ensure_profile(text)                             to authenticated;
 grant execute on function public.regenerate_friend_code()                         to authenticated;
@@ -323,3 +494,15 @@ grant execute on function public.add_friend_by_code(text)                       
 grant execute on function public.remove_friendship(uuid)                          to authenticated;
 grant execute on function public.list_friends()                                   to authenticated;
 grant execute on function public.delete_my_data()                                 to authenticated;
+grant execute on function public.log_event(uuid, text)                            to anon, authenticated;
+grant execute on function public.forget_device(uuid)                              to anon, authenticated;
+grant execute on function public.is_admin()                                       to authenticated;
+grant execute on function public.admin_stats(text)                                to authenticated;
+
+-- ---------------------------------------------------------------- make yourself the owner (run once, separately)
+-- Replace the address with the email of the account you sign in with, then run just this statement.
+-- (It is commented out here so the script never gives anyone access by accident.)
+--
+-- insert into public.admins (user_id)
+-- select id from auth.users where lower(email) = lower('YOUR-EMAIL@example.com')
+-- on conflict do nothing;

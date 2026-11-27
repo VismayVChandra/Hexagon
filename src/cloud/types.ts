@@ -1,3 +1,6 @@
+import type { AdminStats } from './adminStats';
+import type { AnalyticsEvent } from './analytics';
+
 /** Shapes shared by the cloud layer. The backend itself lives behind `CloudBackend`. */
 
 export interface CloudUser {
@@ -75,6 +78,15 @@ export interface CloudBackend {
   setPresence(p: PresenceUpdate): Promise<void>;
   clearPresence(): Promise<void>;
   deleteMyData(): Promise<void>;
+
+  /** Record one anonymous usage event for this device (see analytics.ts). */
+  logEvent(deviceId: string, name: AnalyticsEvent): Promise<void>;
+  /** Delete every event recorded for a device. */
+  forgetDevice(deviceId: string): Promise<void>;
+  /** Is the signed-in account the app's owner? */
+  isAdmin(): Promise<boolean>;
+  /** Totals for the owner dashboard. Owner only. */
+  adminStats(timeZone: string): Promise<AdminStats>;
 }
 
 export class CloudError extends Error {

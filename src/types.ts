@@ -118,6 +118,9 @@ export interface Settings {
   shareSubject: boolean;
   lastSubjectId?: string;
   installHintDismissed: boolean;
+  /** Privacy: send anonymous usage counts (opens, sessions started) so the app's owner can see what is used. On by default, with a note on Home. */
+  analytics: boolean;
+  analyticsNoticeDismissed: boolean;
 }
 
 export interface AppData {

@@ -9,6 +9,7 @@ import { formatFriendCode, isCurrentCode } from '../cloud/presence';
 import type { ThemePref } from '../types';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
+import { AdminLink } from '../components/AdminLink';
 import { dayKey } from '../lib/time';
 import type { Settings } from '../types';
 
@@ -170,7 +171,16 @@ export default function SettingsPage() {
         <h2 id="priv-h" className="card-title">
           Privacy
         </h2>
-        <p className="muted small">Your study data stays on this device. Nothing is uploaded, and there’s no analytics.</p>
+        <p className="muted small">Your study data stays on this device. {cloudConfigured ? 'Only friends features and the anonymous counts below use a server.' : 'Nothing is uploaded.'}</p>
+        {cloudConfigured && (
+          <Toggle
+            id="s-analytics"
+            checked={settings.analytics}
+            onChange={(v) => updateSettings({ analytics: v, analyticsNoticeDismissed: true })}
+            label="Share anonymous usage counts"
+            description="Counts things like opening the app or starting a session, tied to a random id on this device. Never your name, subjects, topics or notes. Turning it off also deletes the counts already sent from this device."
+          />
+        )}
         <Toggle id="s-presence" checked={settings.sharePresence} onChange={(v) => updateSettings({ sharePresence: v, ...(v ? {} : { shareSubject: false }) })} label="Let friends see when I’m studying" description={live ? 'Off by default. When on, friends you’ve accepted can see when you’re studying.' : cloudConfigured ? 'Off by default. Sign in on the Friends page to share with real friends. Until then it only affects simulated rooms.' : 'Off by default. In this demo it only affects how you appear in simulated rooms on this device.'} />
         <Toggle id="s-subject" checked={settings.shareSubject} disabled={!settings.sharePresence} onChange={(v) => updateSettings({ shareSubject: v })} label="Also show my subject" description="Only available if the setting above is on." />
       </section>
@@ -286,13 +296,15 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <AdminLink />
+
       <section className="card" aria-labelledby="about-h">
         <h2 id="about-h" className="card-title">
           About this version
         </h2>
         <ul className="facts">
           <li>Timers use real timestamps, so they stay correct if the page is backgrounded, refreshed or reopened.</li>
-          <li>Friends, rooms and presence are simulated demos — no server is connected.</li>
+          <li>{cloudConfigured ? 'Friends use real accounts. Shared focus rooms are simulated demos.' : 'Friends, rooms and presence are simulated demos — no server is connected.'}</li>
           <li>No push notifications or background alerts. Chimes only play while the app is open.</li>
           <li>Works offline after the first load.</li>
         </ul>

@@ -5,6 +5,7 @@ import { haptic, useInstall, useNow, primeAudio, showToast } from '../hooks/hook
 import { SummaryCard } from '../components/SummaryCard';
 import { HiveCard } from '../components/HiveCard';
 import { GarageCard } from '../components/GarageCard';
+import { AdminLink, UsageNotice } from '../components/AdminLink';
 import { currentStreak, nextMilestone, sessionDay, STREAK_MIN_MS, subjectTotals, sessionsInRange, sum, todayMs, totalsByDay, weekMs } from '../lib/stats';
 import { MIN, addDays, daysBetween, dayKey, formatDayLabel, formatDuration, greeting, relativeDays, weekStartKey, parseDayKey, formatShortDate } from '../lib/time';
 import type { StudySession, Subject } from '../types';
@@ -126,6 +127,9 @@ export default function Home() {
           )}
         </section>
       )}
+
+      <UsageNotice />
+      <AdminLink />
 
       <HiveCard sessions={sessions} now={now} />
       {(settings.scene === 'car' || data.garage.length > 0 || Object.keys(data.builds).length > 0) && <GarageCard garage={data.garage} builds={data.builds} />}

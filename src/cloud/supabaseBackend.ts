@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CLOUD_KEY, CLOUD_URL } from './config';
+import { parseAdminStats } from './adminStats';
 import { CloudError, type AddFriendResult, type CloudBackend, type CloudProfile, type CloudUser, type PresenceUpdate, type RemoteFriend } from './types';
 
 interface ProfileRow {
@@ -33,6 +34,8 @@ function wrap(e: unknown): CloudError {
   if (err?.status === 429 || /rate limit|too many/i.test(msg)) return new CloudError('Too many attempts. Please wait a few minutes and try again.', 'rate-limit');
   if (/failed to fetch|network|load failed/i.test(msg)) return new CloudError('Can’t reach the server. Check your connection and try again.', 'network');
   if (/not signed in|jwt|invalid claim|user from sub claim|refresh token/i.test(msg)) return new CloudError('You’ve been signed out. Please sign in again.', 'auth');
+  if (/not allowed/i.test(msg) && err?.code === 'P0001') return new CloudError('Only the app’s owner can open the dashboard.', 'validation');
+  if (/admin_stats|is_admin|log_event/i.test(msg) && /could not find the function|schema cache/i.test(msg)) return new CloudError('The dashboard needs the latest setup SQL. Run supabase/schema.sql again in Supabase.', 'server');
   if (/could not find the function|schema cache/i.test(msg)) return new CloudError('The friends database isn’t set up yet. The app’s owner needs to run the setup SQL in Supabase.', 'server');
   // Messages raised by our own SQL functions are already friendly (e.g. "Name must be 1 to 30 characters").
   if (err?.code === 'P0001') return new CloudError(msg, 'validation');
@@ -150,6 +153,19 @@ export async function createSupabaseBackend(): Promise<CloudBackend> {
     },
     async deleteMyData() {
       await run(sb.rpc('delete_my_data'));
+    },
+
+    async logEvent(deviceId, name) {
+      await run(sb.rpc('log_event', { p_device: deviceId, p_name: name }));
+    },
+    async forgetDevice(deviceId) {
+      await run(sb.rpc('forget_device', { p_device: deviceId }));
+    },
+    async isAdmin() {
+      return (await run<boolean>(sb.rpc('is_admin'))) === true;
+    },
+    async adminStats(timeZone) {
+      return parseAdminStats(await run<unknown>(sb.rpc('admin_stats', { p_tz: timeZone })));
     },
   };
 }

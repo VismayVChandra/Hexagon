@@ -3,6 +3,7 @@ import { HashRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useLocation
 import { dismissSummary, heartbeat, initStore, isDemoMode, removeDemoData, resolveAway, startFresh, updateSettings, useStore, watchOtherTabs } from './store/store';
 import { useApplyTheme, useResolvedTheme } from './lib/theme';
 import { initCloud } from './cloud/cloud';
+import { analytics, setAnalyticsEnabled } from './cloud/analytics';
 import { showToast, useNow, useToasts } from './hooks/hooks';
 import { computeView } from './lib/timer';
 import { formatClock, formatTimeOfDay } from './lib/time';
@@ -17,6 +18,7 @@ import Friends from './pages/Friends';
 import Exams from './pages/Exams';
 import SettingsPage from './pages/Settings';
 import Garage from './pages/Garage';
+import AdminPage from './pages/Admin';
 
 function Splash({ children }: { children?: React.ReactNode }) {
   return (
@@ -235,6 +237,19 @@ function Gate() {
     return watchOtherTabs();
   }, []);
 
+  // Anonymous usage counts: follow the Settings switch, count one "open", and note when the app gets installed.
+  const analyticsOn = data.settings.analytics;
+  useEffect(() => {
+    if (status !== 'ready') return;
+    setAnalyticsEnabled(analyticsOn);
+    if (analyticsOn) analytics.track('app_open');
+  }, [status, analyticsOn]);
+  useEffect(() => {
+    const onInstalled = () => analytics.track('app_installed');
+    window.addEventListener('appinstalled', onInstalled);
+    return () => window.removeEventListener('appinstalled', onInstalled);
+  }, []);
+
   if (status === 'loading') return <Splash />;
   if (status === 'error') {
     return (
@@ -271,6 +286,7 @@ function Gate() {
         <Route path="exams" element={<Exams />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="garage" element={<Garage />} />
+        <Route path="admin" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

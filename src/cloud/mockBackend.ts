@@ -8,7 +8,11 @@
  *
  * Friend codes to try:  482913 (Ava, studying)   715204 (Ben, online)   690138 (Chloe, finished)
  * Eight wrong codes in a session trigger the rate limit.
+ * Sign up with an email containing "admin" (e.g. admin+instant@example.com) to see the owner dashboard, filled with made-up numbers
+ * plus the events this browser records.
  */
+import { parseAdminStats } from './adminStats';
+import { mulberry32 } from '../lib/id';
 import { CloudError, type AddFriendResult, type CloudBackend, type CloudProfile, type CloudUser, type RemoteFriend } from './types';
 
 const KEY = 'hexagon.mockcloud2';
@@ -52,6 +56,76 @@ function load(): Db {
   }
   return { accounts: {}, session: null };
 }
+const EVENTS_KEY = 'hexagon.mockevents';
+const localEvents = (): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(EVENTS_KEY) ?? '[]') as unknown;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+/** Made-up numbers in the shape the server returns, so the dashboard can be tried without a project. Real local events are added on top. */
+function fakeStats(events: string[]): unknown {
+  const rnd = mulberry32(7);
+  const today = new Date();
+  const daily = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(today.getTime() - (29 - i) * 86_400_000);
+    const visitors = Math.round(6 + i * 1.4 + rnd() * 7);
+    const newV = Math.round(visitors * (0.75 - i * 0.012) + rnd() * 2);
+    const started = Math.round(visitors * (0.5 + rnd() * 0.15));
+    return {
+      day: d.toISOString().slice(0, 10),
+      visitors,
+      new_visitors: Math.max(1, newV),
+      started,
+      finished: Math.round(started * (0.7 + rnd() * 0.25)),
+      signups: Math.round(visitors * (0.08 + rnd() * 0.12)),
+    };
+  });
+  const count = (name: string) => events.filter((e) => e === name).length;
+  const visitorsTotal = daily.reduce((n, d) => n + d.new_visitors, 0) + count('app_open');
+  const accountsTotal = daily.reduce((n, d) => n + d.signups, 0);
+  return {
+    generated_at: new Date().toISOString(),
+    tz: 'UTC',
+    tracking_since: daily[0].day + 'T09:00:00Z',
+    overview: {
+      visitors_total: visitorsTotal,
+      visitors_today: daily[29].visitors + count('app_open'),
+      visitors_7d: daily.slice(-7).reduce((n, d) => n + d.visitors, 0),
+      visitors_30d: visitorsTotal,
+      returning_visitors: Math.round(visitorsTotal * 0.42),
+      installed: Math.round(visitorsTotal * 0.18),
+      started_studying: Math.round(visitorsTotal * 0.61) + count('session_start'),
+      finished_session: Math.round(visitorsTotal * 0.47) + count('session_finish'),
+      sessions_started: Math.round(visitorsTotal * 2.4) + count('session_start'),
+      sessions_finished: Math.round(visitorsTotal * 1.7) + count('session_finish'),
+      cars_built: Math.round(visitorsTotal * 0.3) + count('car_built'),
+      signed_in_devices: Math.round(accountsTotal * 1.1),
+      friend_devices: Math.round(accountsTotal * 0.6),
+    },
+    accounts: {
+      total: accountsTotal,
+      confirmed: Math.round(accountsTotal * 0.93),
+      named: Math.round(accountsTotal * 0.88),
+      with_friends: Math.round(accountsTotal * 0.55),
+      friendships: Math.round(accountsTotal * 0.9),
+      sharing_status: Math.round(accountsTotal * 0.4),
+      sharing_subject: Math.round(accountsTotal * 0.15),
+      signups_7d: daily.slice(-7).reduce((n, d) => n + d.signups, 0),
+      recent: [
+        { at: new Date(today.getTime() - 3_600_000).toISOString(), email: 'sa***@gmail.com', confirmed: true, named: true, friends: 2 },
+        { at: new Date(today.getTime() - 9_000_000).toISOString(), email: 'ri***@gmail.com', confirmed: true, named: true, friends: 0 },
+        { at: new Date(today.getTime() - 40_000_000).toISOString(), email: 'an***@outlook.com', confirmed: false, named: false, friends: 0 },
+        { at: new Date(today.getTime() - 90_000_000).toISOString(), email: 'me***@gmail.com', confirmed: true, named: true, friends: 5 },
+      ],
+    },
+    daily,
+  };
+}
+
 const wait = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 
 export function createMockBackend(): CloudBackend {
@@ -201,6 +275,24 @@ export function createMockBackend(): CloudBackend {
       a.profile = null;
       a.friendIds = [];
       save();
+    },
+
+    async logEvent(_deviceId, name) {
+      void _deviceId;
+      localStorage.setItem(EVENTS_KEY, JSON.stringify([...localEvents(), name].slice(-500)));
+    },
+    async forgetDevice() {
+      localStorage.removeItem(EVENTS_KEY);
+    },
+    async isAdmin() {
+      const a = db.session ? db.accounts[db.session] : undefined;
+      return !!a && a.email.includes('admin');
+    },
+    async adminStats() {
+      const a = db.session ? db.accounts[db.session] : undefined;
+      if (!a || !a.email.includes('admin')) throw new CloudError('Only the app\u2019s owner can open the dashboard.', 'validation');
+      await wait(300);
+      return parseAdminStats(fakeStats(localEvents()));
     },
   };
 }

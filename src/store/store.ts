@@ -11,6 +11,7 @@ import { GOLDEN_SESSION_MS, cellsFromMs, goldenDayKeys, rankFor, timedMs } from 
 import { applyBuild, buildMs, carById } from '../data/cars';
 import { MIN } from '../lib/time';
 import { showToast } from '../hooks/hooks';
+import { analytics } from '../cloud/analytics';
 
 export interface StoreState {
   status: 'loading' | 'ready' | 'error';
@@ -226,6 +227,7 @@ export function startSession(p: StartParams, now = Date.now()): Result<ActiveSes
     carId: p.scene === 'car' ? p.carId : undefined,
   };
   mutateLeavingDemo((d) => ({ ...d, active, settings: { ...d.settings, lastSubjectId: p.subjectId, scene: active.scene ?? d.settings.scene } }), p.friendIds);
+  analytics.track('session_start');
   return { ok: true, value: active };
 }
 
@@ -314,6 +316,9 @@ export function finishSession(notes: string, now = Date.now()): Result<StudySess
     car: car ? { id: car.id, name: car.name, completed: !!built.completed, progress: carProgress } : undefined,
   };
   mutate((d) => ({ ...d, sessions: after, active: null, builds: built.builds, garage: built.garage }));
+  // Anonymous counts: only sessions of a minute or more count as "finished".
+  if (session.studiedMs >= MIN) analytics.track('session_finish');
+  if (built.completed) analytics.track('car_built');
   set({ summary });
   return { ok: true, value: session };
 }
