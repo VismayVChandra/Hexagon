@@ -176,6 +176,8 @@ export interface Settings {
   cloudSync: boolean;
   /** The one-time "keep your hive safe, make an account" card on Home was dismissed. */
   accountPromptDismissed: boolean;
+  /** The one-time "let friends see when you study?" card on Home was answered (or the switch was used in Settings). */
+  presencePromptDismissed: boolean;
 }
 
 export interface AppData {

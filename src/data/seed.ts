@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notifyPromptDismissed: false,
   cloudSync: true,
   accountPromptDismissed: false,
+  presencePromptDismissed: false,
 };
 
 const TOPICS: Record<string, string[]> = {

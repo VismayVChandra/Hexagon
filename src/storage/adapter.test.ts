@@ -39,6 +39,13 @@ describe('parseAppData', () => {
     expect(s.shareSubject).toBe(false);
   });
 
+  it('remembers whether the friends-can-see-you question was answered', () => {
+    const d = emptyData() as unknown as Record<string, unknown>;
+    expect(parseAppData(d)!.settings.presencePromptDismissed).toBe(false);
+    d.settings = { presencePromptDismissed: true };
+    expect(parseAppData(d)!.settings.presencePromptDismissed).toBe(true);
+  });
+
   it('keeps a saved choice to study privately', () => {
     const d = emptyData() as unknown as Record<string, unknown>;
     d.settings = { sharePresence: false };

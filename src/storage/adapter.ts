@@ -73,6 +73,7 @@ function sanitizeSettings(v: unknown): Settings {
     notifyPromptDismissed: s.notifyPromptDismissed === true,
     cloudSync: typeof s.cloudSync === 'boolean' ? s.cloudSync : d.cloudSync,
     accountPromptDismissed: s.accountPromptDismissed === true,
+    presencePromptDismissed: s.presencePromptDismissed === true,
   };
 }
 

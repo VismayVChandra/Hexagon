@@ -10,6 +10,7 @@ import { nudgeMessage } from '../lib/messages';
 import { dayKey, daysBetween } from '../lib/time';
 import { CUE_TONES, type CueTone } from '../types';
 import { cloudConfigured } from '../cloud/config';
+import { presencePromptWanted } from './AccountCard';
 import { useCloud } from '../cloud/cloud';
 
 /** Settings → Sounds: the tunes for timers, plus the library of study sounds. */
@@ -187,7 +188,7 @@ export function NotifyPrompt() {
   const cloud = useCloud();
   const [perm, setPerm] = useState<NotifyPermission>(() => notifyPermission());
   // One suggestion at a time: the account card goes first.
-  const accountFirst = cloudConfigured && cloud.phase !== 'signed-in' && !s.accountPromptDismissed;
+  const accountFirst = (cloudConfigured && cloud.phase !== 'signed-in' && !s.accountPromptDismissed) || presencePromptWanted(s, cloud.phase === 'signed-in', !!data.active);
   if (s.notifyPromptDismissed || s.notify || !hasStudied || data.active || perm !== 'default' || accountFirst) return null;
 
   async function turnOn() {

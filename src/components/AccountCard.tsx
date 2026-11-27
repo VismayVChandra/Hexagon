@@ -114,6 +114,43 @@ export function AccountSettings() {
   );
 }
 
+/**
+ * Sharing your status with friends became on by default, but people who were already using the app keep what they had (off).
+ * So they get this one question, once, instead of being switched on without being asked.
+ */
+export function presencePromptWanted(s: { sharePresence: boolean; presencePromptDismissed: boolean }, signedIn: boolean, hasActive: boolean): boolean {
+  return cloudConfigured && signedIn && !s.sharePresence && !s.presencePromptDismissed && !hasActive;
+}
+
+export function PresencePrompt() {
+  const { data } = useStore();
+  const cloud = useCloud();
+  if (!presencePromptWanted(data.settings, cloud.phase === 'signed-in', !!data.active)) return null;
+  return (
+    <section className="card prompt-card" aria-labelledby="pp-h">
+      <h2 id="pp-h" className="card-title">
+        Let friends see when you’re studying?
+      </h2>
+      <p className="muted small">Friends you’ve accepted can see when you’re studying, never your subject, sessions or notes. It has been off for you so far. Turn it on to study together, or keep it off. You can change your mind any time in Settings → Privacy.</p>
+      <div className="row">
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => {
+            updateSettings({ sharePresence: true, presencePromptDismissed: true });
+            showToast('Friends can now see when you’re studying.');
+          }}
+        >
+          Turn it on
+        </button>
+        <button type="button" className="btn btn-quiet" onClick={() => updateSettings({ presencePromptDismissed: true })}>
+          Keep it off
+        </button>
+      </div>
+    </section>
+  );
+}
+
 /** One-time card on Home for people who have studied but have no account: the reason to make one. */
 export function AccountPrompt() {
   const { data } = useStore();
