@@ -129,7 +129,7 @@ export default function Friends() {
           <Icon name="info" />
           <p>
             <strong>Demo mode.</strong> The friends and rooms below are simulated on this device from the clock. Nobody is actually connected, and nothing you do is shared.
-            {cloudConfigured ? ' Turn on friends below to add real ones.' : ' Real friends need an account service, which isn’t connected to this copy of the app.'}
+            {cloudConfigured ? ' Create an account below to add real friends.' : ' Real friends need an account service, which isn’t connected to this copy of the app.'}
           </p>
         </div>
       )}
@@ -139,7 +139,7 @@ export default function Friends() {
           <h2 id="real-h" className="card-title">
             Add real friends
           </h2>
-          <p className="muted small">Get a 6-digit code to share. When a friend types it into their app, you’re friends. No email or password. Your study data stays on your device. Friends only see your name, and your status if you turn that on.</p>
+          <p className="muted small">Create a free account to get a 6-digit code to share. When a friend types it into their app, you’re friends. Your account keeps your code and friends if you switch phones. Your study data stays on your device, and friends only see your name, and your status if you turn that on.</p>
           <CloudSignIn />
         </section>
       )}
@@ -313,7 +313,7 @@ export default function Friends() {
         ) : (
           <form onSubmit={submitDemo} noValidate className="stack">
             <p className="muted small">
-              {cloudConfigured ? 'Friends isn’t turned on yet, so this adds a ' : 'Hexagon can’t connect to real accounts yet, so this adds a '}
+              {cloudConfigured ? 'You’re not signed in, so this adds a ' : 'Hexagon can’t connect to real accounts yet, so this adds a '}
               <strong>simulated</strong> study buddy to try the flow. They aren’t a real person and aren’t notified.
             </p>
             <Field label="Friend’s name" htmlFor="friend-name" error={error}>

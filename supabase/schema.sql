@@ -3,13 +3,12 @@
 -- Safe to re-run, and it upgrades an earlier version of this script (8-character codes + friend requests)
 -- to the current design (6-digit code, instant friendship when a friend types it in).
 --
--- How people sign in: there is no email or password. The app creates an anonymous Supabase account on each device
--- (turn on "Allow anonymous sign-ins" under Authentication -> Sign In / Providers).
+-- How people sign in: email + password through Supabase Auth, so a student keeps their code and friends on any phone.
 --
 -- Security model
 --   * Every table has Row Level Security ON and NO policies, so the public API cannot read or write tables directly.
 --   * The app talks only to the functions below. Each runs as the table owner but checks auth.uid() itself, and is
---     executable by signed-in (including anonymous) users only.
+--     executable by signed-in users only.
 --   * Whoever knows your 6-digit code can add you, so wrong guesses are rate-limited (8 per hour per account) and
 --     you can replace your code at any time.
 --   * A friend sees your status only if you turned on "share my status". The subject is only included if you also

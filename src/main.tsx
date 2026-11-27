@@ -2,6 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
+import { captureAuthRedirect } from './cloud/authRedirect';
+
+// Must run before the router sees the URL: confirmation and reset emails link back with a result in the hash.
+captureAuthRedirect();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

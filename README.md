@@ -53,7 +53,7 @@ version means writing one new adapter, then moving `persist()` to per-entity API
 | Vibration feedback on start, pause and finish | Android browsers only. iPhone browsers have no vibration API, and the setting says so. |
 | Light / Dark / System appearance, with a quick sun/moon toggle in the header | Fully working. The choice is applied before first paint, so there is no flash. |
 | Keep-screen-on during sessions | Works where the browser supports the Wake Lock API |
-| Friends, presence, shared focus rooms | **Demo by default** (simulated from the clock, labelled "Demo"/"Simulated"). **Real friends** switch on when a Supabase project is connected: a 6-digit friend code you share (like a ride-share OTP; type a friend's code and you're friends), invite links, opt-in presence, shared rooms, updated about every 20 seconds. No email or password. See [docs/FRIENDS_SETUP.md](docs/FRIENDS_SETUP.md). |
+| Friends, presence, shared focus rooms | **Demo by default** (simulated from the clock, labelled "Demo"/"Simulated"). **Real friends** switch on when a Supabase project is connected: an email + password account, a 6-digit friend code you share (like a ride-share OTP; type a friend's code and you're friends), invite links, opt-in presence, shared rooms, updated about every 20 seconds. Signing in on a new phone brings the code and friends back. See [docs/FRIENDS_SETUP.md](docs/FRIENDS_SETUP.md). |
 | First launch | Opens in **demo mode** with sample sessions, exams and simulated friends, flagged with a "Demo" strip. Browsing never changes anything. Your first real action (start a session, add a subject or exam, log a past session) clears the sample data and starts a fresh space. "Start fresh now" in the strip or "Remove demo data" in Settings does the same. |
 | Push notifications, background alerts, cross-device sync | **Not implemented.** Chimes only play while the app is open. |
 
@@ -62,7 +62,7 @@ Study data stays in the browser's localStorage. Nothing is uploaded and there is
 ## Still needed for real users
 
 - **Backend + accounts:** authentication, a database for sessions/exams/subjects, sync across devices, data export/deletion endpoints.
-- **Real friends hardening:** the backend is written but needs the one-time setup in docs/FRIENDS_SETUP.md (run the SQL, enable anonymous sign-ins). Still to build: blocking/reporting, rate limiting on friend-code guesses, true real-time updates (it polls every ~20s), and a privacy policy that matches what is shared.
+- **Real friends hardening:** the backend is written but needs the one-time setup in docs/FRIENDS_SETUP.md (run the SQL, set the redirect URL, sort out email delivery). Still to build: blocking/reporting, rate limiting on friend-code guesses, true real-time updates (it polls every ~20s), and a privacy policy that matches what is shared.
 - **Notifications:** Web Push needs a push server, VAPID keys and user permission flow (supported on iOS 16.4+ only for installed home-screen apps). Until then there are no background alerts.
 - **Hosting:** any static HTTPS host (Netlify, Vercel, Cloudflare Pages, GitHub Pages). The build uses relative paths and hash routing, so no rewrite rules are required.
 - **Icons/branding:** the generated hexagon icons are placeholders. Add a splash/screenshots set for nicer install prompts.

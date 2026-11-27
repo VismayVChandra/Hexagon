@@ -1,24 +1,29 @@
 import { useSyncExternalStore } from 'react';
 import { USE_MOCK, cloudConfigured } from './config';
-import { CloudError, type CloudBackend, type CloudProfile, type RemoteFriend } from './types';
+import { CloudError, type CloudBackend, type CloudProfile, type CloudUser, type RemoteFriend } from './types';
 import { HEARTBEAT_MS, desiredPresence, normalizeFriendCode, type PresenceInputs } from './presence';
+import { isValidEmail, passwordProblem } from './validate';
+import { takeAuthRedirect } from './authRedirect';
 import { getState as getMain, subscribe as subscribeMain, updateSettings } from '../store/store';
 import { showToast } from '../hooks/hooks';
 import { computeView } from '../lib/timer';
 
 /**
- * Friends without email: the first time someone turns friends on, this device gets an anonymous account, they pick a
- * name, and receive a 6-digit code. Typing a friend's code makes you friends instantly.
- * The account lives in this browser. Clearing site data or switching phones gives a new account and a new code.
+ * Friends with a real account: email + password (Supabase Auth), so a student keeps their 6-digit code and friends when
+ * they clear site data or switch phones, by signing in again. Typing a friend's code makes you friends instantly.
  */
-export type CloudPhase = 'off' | 'starting' | 'signed-out' | 'needs-name' | 'signed-in';
+export type CloudPhase = 'off' | 'starting' | 'signed-out' | 'check-email' | 'reset-password' | 'needs-name' | 'signed-in';
 
 export interface CloudState {
   phase: CloudPhase;
+  /** The email being signed up / signed in. */
+  email: string;
   profile: CloudProfile | null;
   friends: RemoteFriend[];
   /** A message for the current step. */
   error: string | null;
+  /** A positive message for the current step (e.g. "Email confirmed"). */
+  notice: string | null;
   busy: boolean;
   /** The last refresh failed (offline, server hiccup). Data shown may be stale. */
   syncError: boolean;
@@ -33,9 +38,11 @@ const POLL_MS = 20_000;
 
 let state: CloudState = {
   phase: cloudConfigured ? 'starting' : 'off',
+  email: '',
   profile: null,
   friends: [],
   error: null,
+  notice: null,
   busy: false,
   syncError: false,
   lastSyncAt: null,
@@ -117,24 +124,46 @@ function loadBackend(): Promise<CloudBackend> {
 
 const messageOf = (e: unknown) => (e instanceof CloudError ? e.message : e instanceof Error ? e.message : 'Something went wrong');
 
-// ---------- turning friends on ----------
+// ---------- account ----------
 
 let started = false;
+const HAD_ACCOUNT_KEY = 'hexagon.hadAccount';
+
+/** True once someone has signed in on this device, so the form can default to "Sign in" instead of "Create account". */
+export function hadAccount(): boolean {
+  try {
+    return localStorage.getItem(HAD_ACCOUNT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Where email links should send people back to: this app's own address. */
+const redirectTo = () => `${location.origin}${location.pathname}`;
 
 export async function initCloud() {
   if (!cloudConfigured || started) return;
   started = true;
+  const redirect = takeAuthRedirect(); // set when the person arrived by tapping a link in an email
   try {
     const b = await loadBackend();
     b.onSignedOut(() => {
       if (state.phase === 'signed-in') void handleAccountLost();
     });
-    const user = await b.getUser();
-    if (!user) return set({ phase: 'signed-out' });
-    const profile = await b.getProfile();
-    if (!profile) return set({ phase: 'needs-name' });
-    set({ phase: 'signed-in', profile });
-    startSync();
+    let user: CloudUser | null = null;
+    if (redirect?.accessToken && redirect.refreshToken) {
+      try {
+        user = await b.setSession(redirect.accessToken, redirect.refreshToken);
+      } catch {
+        redirect.error = 'That email link didn’t work. Try signing in with your email and password.';
+      }
+      if (user && redirect.type === 'recovery') return set({ email: user.email, phase: 'reset-password' });
+      if (user) set({ notice: 'Email confirmed. You’re signed in.' });
+    } else {
+      user = await b.getUser();
+    }
+    if (!user) return set({ phase: 'signed-out', error: redirect?.error ?? null });
+    await enterAccount(b, user);
   } catch (e) {
     // Offline or the server is unreachable: fall back to what we last knew.
     const cache = readCache();
@@ -145,6 +174,19 @@ export async function initCloud() {
       set({ phase: 'signed-out', error: messageOf(e) });
     }
   }
+}
+
+async function enterAccount(b: CloudBackend, user: CloudUser) {
+  try {
+    localStorage.setItem(HAD_ACCOUNT_KEY, '1');
+  } catch {
+    /* optional */
+  }
+  set({ email: user.email });
+  const profile = await b.getProfile();
+  if (!profile) return set({ phase: 'needs-name', error: null });
+  set({ phase: 'signed-in', profile, error: null });
+  startSync();
 }
 
 async function guarded(fn: () => Promise<void>) {
@@ -158,28 +200,105 @@ async function guarded(fn: () => Promise<void>) {
   }
 }
 
-/** First-time setup: create this device's account, set the name, get a code. */
-export async function enableFriends(nameRaw: string) {
+export async function signUp(emailRaw: string, password: string) {
+  const email = emailRaw.trim().toLowerCase();
+  if (!isValidEmail(email)) return set({ error: 'Enter a valid email address.' });
+  const problem = passwordProblem(password);
+  if (problem) return set({ error: problem });
+  await guarded(async () => {
+    const b = await loadBackend();
+    const r = await b.signUp(email, password, redirectTo());
+    if (r.status === 'signed-in') await enterAccount(b, r.user);
+    else set({ phase: 'check-email', email, notice: null });
+  });
+}
+
+export async function signIn(emailRaw: string, password: string) {
+  const email = emailRaw.trim().toLowerCase();
+  if (!isValidEmail(email)) return set({ error: 'Enter a valid email address.' });
+  if (!password) return set({ error: 'Enter your password.' });
+  set({ busy: true, error: null, notice: null });
+  try {
+    const b = await loadBackend();
+    const user = await b.signIn(email, password);
+    await enterAccount(b, user);
+  } catch (e) {
+    if (e instanceof CloudError && e.kind === 'unconfirmed') set({ phase: 'check-email', email, notice: e.message });
+    else set({ error: messageOf(e) });
+  } finally {
+    set({ busy: false });
+  }
+}
+
+export async function resendConfirmation() {
+  await guarded(async () => {
+    const b = await loadBackend();
+    await b.resendConfirmation(state.email, redirectTo());
+    set({ notice: 'Sent again. Check your inbox, and your spam folder.' });
+  });
+}
+
+export async function sendPasswordReset(emailRaw: string) {
+  const email = emailRaw.trim().toLowerCase();
+  if (!isValidEmail(email)) return set({ error: 'Enter a valid email address.' });
+  await guarded(async () => {
+    const b = await loadBackend();
+    await b.sendPasswordReset(email, redirectTo());
+    // Same message whether or not the address has an account, so this can't be used to check who is registered.
+    set({ notice: 'If that email has an account, a reset link is on its way. Check your spam folder too.' });
+  });
+}
+
+export async function setNewPassword(password: string) {
+  const problem = passwordProblem(password);
+  if (problem) return set({ error: problem });
+  await guarded(async () => {
+    const b = await loadBackend();
+    await b.updatePassword(password);
+    const user = await b.getUser();
+    if (!user) throw new CloudError('You’ve been signed out. Please sign in again.', 'auth');
+    set({ notice: 'Password updated.' });
+    await enterAccount(b, user);
+  });
+}
+
+export function backToSignIn() {
+  set({ phase: 'signed-out', error: null, notice: null });
+}
+
+/** After sign-in, a first-time account chooses a name (this creates the profile and the friend code). */
+export async function saveName(nameRaw: string) {
   const name = nameRaw.trim();
   if (name.length < 1 || name.length > 30) return set({ error: 'Your name should be 1 to 30 characters.' });
   await guarded(async () => {
     const b = await loadBackend();
-    if (!(await b.getUser())) await b.signInAnonymously();
     const profile = await b.saveProfile(name);
     updateSettings({ displayName: name });
-    set({ profile, phase: 'signed-in' });
+    set({ profile, phase: 'signed-in', notice: null });
     writeCache();
     startSync();
+  });
+}
+
+/** Sign out of this device. The account, code and friends stay, and come back when signing in again. */
+export async function signOut() {
+  await guarded(async () => {
+    const b = await loadBackend();
+    stopSync();
+    await b.clearPresence().catch(() => undefined);
+    await b.signOut();
+    clearCache();
+    set({ phase: 'signed-out', profile: null, friends: [], email: '', notice: null });
   });
 }
 
 async function handleAccountLost(message?: string) {
   stopSync();
   clearCache();
-  set({ phase: 'signed-out', profile: null, friends: [], syncError: false, error: message ?? null });
+  set({ phase: 'signed-out', profile: null, friends: [], syncError: false, error: message ?? null, notice: null });
 }
 
-/** Remove my profile, friendships and status from the server, and forget this device's account. */
+/** Remove my name, code, friendships and status from the server, and sign out. (The email account itself can be reused.) */
 export async function deleteCloudData() {
   await guarded(async () => {
     const b = await loadBackend();
@@ -187,7 +306,7 @@ export async function deleteCloudData() {
     await b.deleteMyData();
     await b.signOut();
     clearCache();
-    set({ phase: 'signed-out', profile: null, friends: [] });
+    set({ phase: 'signed-out', profile: null, friends: [], email: '', notice: null });
   });
 }
 

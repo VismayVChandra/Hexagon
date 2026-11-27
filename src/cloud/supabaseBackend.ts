@@ -23,10 +23,16 @@ function wrap(e: unknown): CloudError {
   if (e instanceof CloudError) return e;
   const err = e as { message?: string; status?: number; code?: string };
   const msg = err?.message ?? 'Something went wrong';
-  if (/anonymous sign-ins are disabled/i.test(msg)) return new CloudError('Friends isn’t switched on for this app yet. The app’s owner needs to enable anonymous sign-ins in Supabase.', 'server');
+  if (/email not confirmed/i.test(msg)) return new CloudError('Please confirm your email first. Tap the link we sent you, then sign in.', 'unconfirmed');
+  if (/invalid login credentials/i.test(msg)) return new CloudError('Wrong email or password.', 'auth');
+  if (/already registered|already been registered/i.test(msg)) return new CloudError('That email already has an account. Try signing in instead.', 'validation');
+  if (/password should be|weak password|password.*(short|least)/i.test(msg)) return new CloudError('Choose a longer password (at least 8 characters).', 'validation');
+  if (/unable to validate email|invalid.*email/i.test(msg)) return new CloudError('That email address doesn’t look right.', 'validation');
+  if (/not authorized|not allowed|not in.*(team|organi[sz]ation)/i.test(msg)) return new CloudError('This app’s email sender can only email approved addresses right now. The app’s owner needs to finish the email setup.', 'server');
+  if (/error sending (confirmation|recovery|magic)/i.test(msg)) return new CloudError('We couldn’t send the email just now. Wait a minute and try again.', 'server');
   if (err?.status === 429 || /rate limit|too many/i.test(msg)) return new CloudError('Too many attempts. Please wait a few minutes and try again.', 'rate-limit');
   if (/failed to fetch|network|load failed/i.test(msg)) return new CloudError('Can’t reach the server. Check your connection and try again.', 'network');
-  if (/not signed in|jwt|invalid claim|user from sub claim/i.test(msg)) return new CloudError('Your friends account was reset. Please turn friends on again.', 'auth');
+  if (/not signed in|jwt|invalid claim|user from sub claim|refresh token/i.test(msg)) return new CloudError('You’ve been signed out. Please sign in again.', 'auth');
   if (/could not find the function|schema cache/i.test(msg)) return new CloudError('The friends database isn’t set up yet. The app’s owner needs to run the setup SQL in Supabase.', 'server');
   // Messages raised by our own SQL functions are already friendly (e.g. "Name must be 1 to 30 characters").
   if (err?.code === 'P0001') return new CloudError(msg, 'validation');
@@ -46,16 +52,45 @@ export async function createSupabaseBackend(): Promise<CloudBackend> {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
   });
 
+  const userOf = (u: { id: string; email?: string | null }): CloudUser => ({ id: u.id, email: u.email ?? '' });
+
   return {
     async getUser() {
       const { data } = await sb.auth.getSession();
-      return data.session ? { id: data.session.user.id } : null;
+      return data.session ? userOf(data.session.user) : null;
     },
-    async signInAnonymously() {
-      const { data, error } = await sb.auth.signInAnonymously();
+    async signUp(email, password, redirectTo) {
+      const { data, error } = await sb.auth.signUp({ email, password, options: { emailRedirectTo: redirectTo } });
       if (error) throw wrap(error);
-      if (!data.user) throw new CloudError('Couldn’t set up friends. Please try again.', 'server');
-      return { id: data.user.id } satisfies CloudUser;
+      // For an address that already has an account, Supabase answers "success" with no identities (to avoid revealing who is registered).
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        throw new CloudError('That email already has an account. Try signing in instead.', 'validation');
+      }
+      return data.session && data.user ? { status: 'signed-in', user: userOf(data.user) } : { status: 'confirm-email' };
+    },
+    async signIn(email, password) {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw wrap(error);
+      return userOf(data.user);
+    },
+    async resendConfirmation(email, redirectTo) {
+      const { error } = await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirectTo } });
+      if (error) throw wrap(error);
+    },
+    async sendPasswordReset(email, redirectTo) {
+      const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) throw wrap(error);
+    },
+    async setSession(accessToken, refreshToken) {
+      const { data, error } = await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+      if (error) throw wrap(error);
+      const u = data.user ?? data.session?.user;
+      if (!u) throw new CloudError('Sign-in didn’t complete. Please try again.', 'auth');
+      return userOf(u);
+    },
+    async updatePassword(newPassword) {
+      const { error } = await sb.auth.updateUser({ password: newPassword });
+      if (error) throw wrap(error);
     },
     async signOut() {
       await sb.auth.signOut();

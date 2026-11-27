@@ -4,7 +4,7 @@ import { exportJson, getState, hasDemoData, removeDemoData, resetEverything, upd
 import { hapticsSupported, showToast, useInstall, wakeLockSupported } from '../hooks/hooks';
 import { Field, Toggle } from '../components/bits';
 import { cloudConfigured } from '../cloud/config';
-import { deleteCloudData, renameSelf, useCloud } from '../cloud/cloud';
+import { deleteCloudData, renameSelf, signOut, useCloud } from '../cloud/cloud';
 import { formatFriendCode } from '../cloud/presence';
 import type { ThemePref } from '../types';
 import { ConfirmDialog } from '../components/Dialog';
@@ -182,6 +182,9 @@ export default function SettingsPage() {
           </h2>
           {live && cloud.profile ? (
             <>
+              <p className="muted small">
+                Signed in as <strong>{cloud.email}</strong>.
+              </p>
               <p>
                 Your friend code: <strong>{formatFriendCode(cloud.profile.friendCode)}</strong>{' '}
                 <Link to="/friends" className="link-btn">
@@ -206,15 +209,20 @@ export default function SettingsPage() {
                 </button>
               </form>
               <p className="hint">
-                Your study sessions never leave this device. Friends only see your name, and your status if you share it. Your friends account lives in this browser: if you clear site data or switch phones, you’ll get a new code and need to add friends again.
+                Your study sessions never leave this device. Friends only see your name, and your status if you share it. Sign in on another phone with the same email and password to get your code and friends back.
               </p>
-              <button type="button" className="btn btn-quiet btn-danger-text" disabled={cloud.busy} onClick={() => setConfirmDeleteCloud(true)}>
-                Delete my friends data
-              </button>
+              <div className="row">
+                <button type="button" className="btn btn-secondary" disabled={cloud.busy} onClick={() => void signOut()}>
+                  Sign out
+                </button>
+                <button type="button" className="btn btn-quiet btn-danger-text" disabled={cloud.busy} onClick={() => setConfirmDeleteCloud(true)}>
+                  Delete my friends data
+                </button>
+              </div>
             </>
           ) : (
             <p className="muted">
-              Friends isn’t turned on. <Link to="/friends" className="link-btn">Turn it on in the Friends tab</Link> to get a code to share.
+              You’re not signed in. <Link to="/friends" className="link-btn">Create an account or sign in on the Friends tab</Link> to get a code to share.
             </p>
           )}
         </section>
@@ -223,7 +231,7 @@ export default function SettingsPage() {
       <ConfirmDialog
         open={confirmDeleteCloud}
         title="Delete your friends data?"
-        message="This removes your name, friend code, friendships and shared status from the server and turns friends off on this device. Your study sessions here are not affected."
+        message="This removes your name, friend code, friendships and shared status from the server and signs you out. Your email account stays, so you can set friends up again later. Your study sessions on this device are not affected."
         confirmLabel="Delete friends data"
         danger
         onConfirm={() => {

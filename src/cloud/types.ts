@@ -2,6 +2,7 @@
 
 export interface CloudUser {
   id: string;
+  email: string;
 }
 
 export interface CloudProfile {
@@ -35,17 +36,26 @@ export interface PresenceUpdate {
 
 export type AddFriendResult = { status: 'added' | 'already'; name: string } | { status: 'not_found' | 'self' | 'limited' };
 
+export type SignUpResult = { status: 'signed-in'; user: CloudUser } | { status: 'confirm-email' };
+
 /**
  * Everything the app needs from a server. Supabase is the real implementation;
  * a small in-memory mock exists for development. Errors are thrown as `CloudError`.
  *
- * There is no email or password: each device gets an anonymous account the first time friends are turned on.
+ * Accounts are email + password, so a student keeps their code and friends on any phone.
  */
 export interface CloudBackend {
-  /** The anonymous account saved on this device, if any. */
+  /** The signed-in account saved on this device, if any. */
   getUser(): Promise<CloudUser | null>;
-  /** Create the anonymous account for this device. */
-  signInAnonymously(): Promise<CloudUser>;
+  /** Create an account. If the project requires email confirmation, resolves to 'confirm-email' and sends the link. */
+  signUp(email: string, password: string, redirectTo: string): Promise<SignUpResult>;
+  signIn(email: string, password: string): Promise<CloudUser>;
+  resendConfirmation(email: string, redirectTo: string): Promise<void>;
+  sendPasswordReset(email: string, redirectTo: string): Promise<void>;
+  /** Sign in with tokens from an email link (confirmation or password reset). */
+  setSession(accessToken: string, refreshToken: string): Promise<CloudUser>;
+  /** Set a new password for the signed-in account (after a reset link). */
+  updatePassword(newPassword: string): Promise<void>;
   signOut(): Promise<void>;
   /** Called when the session ends elsewhere. */
   onSignedOut(cb: () => void): () => void;
@@ -70,7 +80,7 @@ export interface CloudBackend {
 export class CloudError extends Error {
   constructor(
     message: string,
-    public readonly kind: 'network' | 'rate-limit' | 'auth' | 'validation' | 'server' = 'server',
+    public readonly kind: 'network' | 'rate-limit' | 'auth' | 'validation' | 'unconfirmed' | 'server' = 'server',
   ) {
     super(message);
   }
