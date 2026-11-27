@@ -5,7 +5,7 @@ import { ROOMS } from '../data/friendsSim';
 import { showToast, useNow } from '../hooks/hooks';
 import { addFriendByCode, regenerateCode, removeFriendship, setPendingInvite, useCloud } from '../cloud/cloud';
 import { cloudConfigured } from '../cloud/config';
-import { formatFriendCode, normalizeFriendCode } from '../cloud/presence';
+import { formatFriendCode, isCurrentCode, normalizeFriendCode } from '../cloud/presence';
 import { useFriendRows } from '../cloud/useFriendRows';
 import { formatDuration } from '../lib/time';
 import { CloudSignIn } from '../components/CloudSignIn';
@@ -144,7 +144,18 @@ export default function Friends() {
         </section>
       )}
 
-      {live && cloud.profile && (
+      {live && cloud.profile && !isCurrentCode(cloud.profile.friendCode) && (
+        <section className="card" role="alert" aria-labelledby="stale-h">
+          <h2 id="stale-h" className="card-title">
+            Friends setup needs updating
+          </h2>
+          <p className="muted">
+            The friends database is on an older version, so your code doesn’t match what this app uses (6 digits). The app’s owner needs to run the latest <code>supabase/schema.sql</code> in Supabase. Your code switches to 6 digits by itself as soon as that’s done.
+          </p>
+        </section>
+      )}
+
+      {live && cloud.profile && isCurrentCode(cloud.profile.friendCode) && (
         <section className="card code-card" aria-labelledby="code-h">
           <p className="eyebrow" id="code-h">
             Your friend code

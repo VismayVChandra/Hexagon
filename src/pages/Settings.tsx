@@ -5,7 +5,7 @@ import { hapticsSupported, showToast, useInstall, wakeLockSupported } from '../h
 import { Field, Toggle } from '../components/bits';
 import { cloudConfigured } from '../cloud/config';
 import { deleteCloudData, renameSelf, signOut, useCloud } from '../cloud/cloud';
-import { formatFriendCode } from '../cloud/presence';
+import { formatFriendCode, isCurrentCode } from '../cloud/presence';
 import type { ThemePref } from '../types';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
@@ -186,7 +186,7 @@ export default function SettingsPage() {
                 Signed in as <strong>{cloud.email}</strong>.
               </p>
               <p>
-                Your friend code: <strong>{formatFriendCode(cloud.profile.friendCode)}</strong>{' '}
+                Your friend code: <strong>{isCurrentCode(cloud.profile.friendCode) ? formatFriendCode(cloud.profile.friendCode) : 'needs a setup update'}</strong>{' '}
                 <Link to="/friends" className="link-btn">
                   Share or replace it
                 </Link>

@@ -384,7 +384,7 @@ export async function refresh() {
   const b = backendRef;
   if (!b || state.phase !== 'signed-in') return;
   try {
-    const friends = await b.listFriends();
+    const [friends, profile] = await Promise.all([b.listFriends(), b.getProfile()]);
     // Tell the person when someone adds them using their code (not on the first load, not for friends they added).
     if (state.lastSyncAt != null) {
       const known = new Set(state.friends.map((f) => f.id));
@@ -395,7 +395,7 @@ export async function refresh() {
         }
       }
     }
-    set({ friends, syncError: false, lastSyncAt: Date.now() });
+    set({ friends, profile: profile ?? state.profile, syncError: false, lastSyncAt: Date.now() });
     writeCache();
   } catch (e) {
     if (e instanceof CloudError && e.kind === 'auth') void handleAccountLost(e.message);

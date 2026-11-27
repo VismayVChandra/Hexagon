@@ -77,3 +77,14 @@ describe('friend codes', () => {
     expect(formatFriendCode('482913')).toBe('482 913');
   });
 });
+
+describe('isCurrentCode', () => {
+  it('accepts only 6-digit codes, so old letter codes are recognised', async () => {
+    const { isCurrentCode } = await import('./presence');
+    expect(isCurrentCode('482913')).toBe(true);
+    expect(isCurrentCode('004219')).toBe(true);
+    expect(isCurrentCode('K7M2QX9P')).toBe(false);
+    expect(isCurrentCode('48291')).toBe(false);
+    expect(isCurrentCode('')).toBe(false);
+  });
+});

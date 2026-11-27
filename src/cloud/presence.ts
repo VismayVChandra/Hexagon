@@ -67,5 +67,8 @@ export function normalizeFriendCode(input: string): string | null {
   return /^\d{6}$/.test(digits) ? digits : null;
 }
 
+/** True for a code in the current format (6 digits). An older database setup produced letters and digits. */
+export const isCurrentCode = (code: string) => /^\d{6}$/.test(code);
+
 /** Shows a code as 482 913 for easier reading aloud. */
 export const formatFriendCode = (code: string) => (code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code);
