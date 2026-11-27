@@ -63,6 +63,7 @@ export const CARS: Car[] = [
   // Tier 1: Starter (25 min)
   car('maruti-alto', 'Maruti Suzuki', 'Alto', 1, 'hatch', '#E5533D'),
   car('maruti-swift', 'Maruti Suzuki', 'Swift', 1, 'hatch', '#F4B400'),
+  car('maruti-wagon-r', 'Maruti Suzuki', 'Wagon R', 1, 'hatch', '#5FA8D3'),
   car('maruti-baleno', 'Maruti Suzuki', 'Baleno', 1, 'hatch', '#3A86C8'),
   car('maruti-brezza', 'Maruti Suzuki', 'Brezza', 1, 'suv', '#7A8B99'),
 

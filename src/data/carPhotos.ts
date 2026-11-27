@@ -214,6 +214,13 @@ export const CAR_PHOTOS: Record<string, CarPhoto> = {
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
     "page": "https://commons.wikimedia.org/wiki/File:Maruti_Suzuki_Swift_4456.JPG"
   },
+  "maruti-wagon-r": {
+    "title": "2023 Maruti Suzuki Wagon R CBG.jpg",
+    "author": "TTTNIS",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "page": "https://commons.wikimedia.org/wiki/File:2023_Maruti_Suzuki_Wagon_R_CBG.jpg"
+  },
   "mclaren-720s": {
     "title": "2021 McLaren 720S 8.jpg",
     "author": "Calreyn88",
