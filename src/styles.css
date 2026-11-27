@@ -2130,13 +2130,30 @@ input:disabled {
   overflow: visible;
 }
 .comb-scene {
-  max-width: 360px;
+  max-width: 380px;
   margin: 0 auto;
-  max-height: 320px;
 }
 .comb-hive {
-  max-width: 340px;
+  max-width: 380px;
   margin: 0 auto;
+}
+.comb-3d {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1.3;
+}
+.comb-3d canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+svg.comb-scene {
+  max-height: 320px;
+}
+svg.comb-hive {
   max-height: 260px;
 }
 .c3 {
@@ -2356,7 +2373,7 @@ input:disabled {
 }
 @media (max-height: 780px) {
   .comb-scene {
-    max-height: 210px;
+    max-width: 290px;
   }
 }
 
@@ -2530,7 +2547,7 @@ input:disabled {
 }
 @media (max-height: 880px) {
   .comb-scene {
-    max-height: 250px;
+    max-width: 330px;
   }
   .timer-stage.has-scene .encourage {
     display: none;
@@ -2538,7 +2555,7 @@ input:disabled {
 }
 @media (max-height: 780px) {
   .comb-scene {
-    max-height: 200px;
+    max-width: 280px;
   }
 }
 @media (max-height: 700px) {

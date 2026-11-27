@@ -3,7 +3,7 @@ import { COMB_CAPACITY, GOLDEN_SESSION_MS, goldenDayKeys, hiveSummary } from '..
 import { capacityFor, ringsFor } from '../lib/hexGeom';
 import { dayKey, formatDuration } from '../lib/time';
 import { Bar } from './bits';
-import { CombSvg } from './Comb';
+import { CombView } from './CombView';
 
 /** Your hive: every 5 minutes of timed focus is a honey cell, kept forever. Total hours raise your bee rank. */
 export function HiveCard({ sessions, now }: { sessions: StudySession[]; now: number }) {
@@ -22,7 +22,7 @@ export function HiveCard({ sessions, now }: { sessions: StudySession[]; now: num
         <span className="rank-badge">{h.rank.name}</span>
       </div>
 
-      <CombSvg
+      <CombView
         capacity={capacity}
         filled={h.inCurrent}
         label={`Your hive: ${h.cells} honey cells, ${combs} full ${combs === 1 ? 'comb' : 'combs'}`}

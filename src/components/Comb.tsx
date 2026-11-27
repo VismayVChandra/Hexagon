@@ -1,10 +1,9 @@
 import { useId, useMemo } from 'react';
-import { CELL_MS } from '../lib/hive';
-import { capacityFor, cellCenter, hexVertices, ringsFor, roundedPolyPath, spiral, type Pt } from '../lib/hexGeom';
+import { cellCenter, hexVertices, roundedPolyPath, spiral, type Pt } from '../lib/hexGeom';
 
 export type BeeMode = 'fly' | 'still' | 'rest' | null;
 
-interface CombProps {
+export interface CombProps {
   /** How many cells the comb has room for (1, 7, 19, 37 …). */
   capacity: number;
   /** Completed honey cells. */
@@ -212,34 +211,5 @@ function Bee({ mode }: { mode: Exclude<BeeMode, null> }) {
         </g>
       )}
     </g>
-  );
-}
-
-interface SceneProps {
-  /** Focus time so far in this session (breaks and pauses excluded). */
-  studiedMs: number;
-  state: 'working' | 'paused' | 'break' | 'done';
-  goal?: { fromMs: number; toMs: number } | null;
-}
-
-/** The live honeycomb for a study session. The comb grows (1, 7, 19, 37… cells) as the session gets longer. */
-export function HoneycombScene({ studiedMs, state, goal }: SceneProps) {
-  const cells = Math.floor(studiedMs / CELL_MS);
-  const frac = (studiedMs % CELL_MS) / CELL_MS;
-  const goalTo = goal ? Math.ceil(goal.toMs / CELL_MS) : 0;
-  const rings = Math.min(6, Math.max(2, ringsFor(Math.max(cells + 1, goalTo))));
-  const capacity = capacityFor(rings);
-  const bee: BeeMode = state === 'working' ? 'fly' : state === 'break' ? 'rest' : 'still';
-  return (
-    <CombSvg
-      capacity={capacity}
-      filled={cells}
-      frac={state === 'done' ? 0 : frac}
-      bee={bee}
-      goal={goal ? { from: Math.floor(goal.fromMs / CELL_MS), to: goalTo } : null}
-      glow={state === 'done'}
-      label={`Honeycomb: ${cells} ${cells === 1 ? 'cell' : 'cells'} of honey made this session`}
-      className="comb-scene"
-    />
   );
 }

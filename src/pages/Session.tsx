@@ -10,7 +10,7 @@ import { useFriendRows } from '../cloud/useFriendRows';
 import { Bar, DemoBadge, FriendAvatar, ProgressRing, StateBadge, SubjectDot, Toggle } from '../components/bits';
 import { Icon } from '../components/Icon';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
-import { HoneycombScene } from '../components/Comb';
+import { HoneycombScene } from '../components/CombView';
 import { CarScene } from '../components/CarArt';
 import { buildMs, carById } from '../data/cars';
 import { CELL_MS } from '../lib/hive';
