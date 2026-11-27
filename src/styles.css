@@ -2130,39 +2130,84 @@ input:disabled {
   overflow: visible;
 }
 .comb-scene {
-  max-width: 330px;
+  max-width: 360px;
   margin: 0 auto;
-  max-height: 300px;
+  max-height: 320px;
 }
 .comb-hive {
   max-width: 340px;
   margin: 0 auto;
   max-height: 260px;
 }
-.comb-cell {
-  fill: var(--surface-2);
-  stroke: var(--line-strong);
-  stroke-width: 0.8;
-}
-.comb-cell.in-goal {
-  stroke: var(--honey);
-  stroke-width: 1.4;
-  stroke-dasharray: 3 3;
-}
-.comb-cell.is-full {
-  stroke: color-mix(in srgb, var(--honey-b) 70%, #4a3000);
-  stroke-width: 0.9;
-}
-.comb-cell.is-new {
+.c3 {
   transform-box: fill-box;
   transform-origin: center;
-  animation: cell-pop 0.7s var(--ease-out);
 }
-.comb-fill {
-  pointer-events: none;
+.c3-rim {
+  stroke: rgba(92, 58, 12, 0.45);
+  stroke-width: 0.7;
+  stroke-linejoin: round;
 }
-.comb-glow .comb-cell.is-full {
-  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--honey) 80%, transparent));
+.c3-rim.in-goal {
+  stroke: var(--honey-b);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2.5;
+}
+.c3-edge {
+  fill: none;
+  stroke: #fffbe8;
+  stroke-opacity: 0.75;
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.c3-honey {
+  stroke: color-mix(in srgb, var(--honey-b) 75%, #4a3000);
+  stroke-width: 0.6;
+}
+.c3.is-new {
+  animation: cell-pop 0.8s var(--ease-out);
+}
+.comb-glow .c3.is-full .c3-honey {
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--honey) 90%, transparent));
+}
+.comb3d {
+  animation: comb-float 7s ease-in-out infinite;
+}
+@keyframes comb-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+.bee-shadow {
+  fill: #000;
+  opacity: 0.28;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.bee-shadow-fly {
+  animation: bee-shadow 2.2s ease-in-out infinite;
+}
+.bee-shadow-rest {
+  opacity: 0.2;
+}
+@keyframes bee-shadow {
+  0%,
+  100% {
+    opacity: 0.16;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.05);
+  }
+}
+.bee-lift {
+  transition: transform 0.6s var(--ease-out);
 }
 @keyframes cell-pop {
   0% {

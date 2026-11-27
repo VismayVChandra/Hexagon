@@ -26,6 +26,7 @@ export function HiveCard({ sessions, now }: { sessions: StudySession[]; now: num
         capacity={capacity}
         filled={h.inCurrent}
         label={`Your hive: ${h.cells} honey cells, ${combs} full ${combs === 1 ? 'comb' : 'combs'}`}
+        quality="lite"
         className="comb-hive"
       />
 

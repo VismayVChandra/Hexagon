@@ -2,23 +2,40 @@
 
 const f = (n: number) => Math.round(n * 100) / 100;
 
-/** SVG path for a hexagon with softly rounded corners (each corner starts `t` of the way along its edges). */
-export function roundedHexPath(cx: number, cy: number, R: number, t = 0.2): string {
-  const v = Array.from({ length: 6 }, (_, k) => {
+export interface Pt {
+  x: number;
+  y: number;
+}
+
+/**
+ * Corners of a pointy-top hexagon, starting at the top and going clockwise. `squash` flattens it vertically, which is how a
+ * flat hexagon looks when the comb is tilted away from you (1 = seen straight on, about 0.6 = a comfortable tilt).
+ */
+export function hexVertices(cx: number, cy: number, R: number, squash = 1): Pt[] {
+  return Array.from({ length: 6 }, (_, k) => {
     const a = ((-90 + 60 * k) * Math.PI) / 180;
-    return [cx + R * Math.cos(a), cy + R * Math.sin(a)] as const;
+    return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) * squash };
   });
+}
+
+/** A closed path through `pts` with softly rounded corners (each corner starts `t` of the way along its edges). */
+export function roundedPolyPath(pts: Pt[], t = 0.2): string {
   return (
-    v
+    pts
       .map((V, i) => {
-        const P = v[(i + 5) % 6];
-        const N = v[(i + 1) % 6];
-        const a = [V[0] + (P[0] - V[0]) * t, V[1] + (P[1] - V[1]) * t];
-        const b = [V[0] + (N[0] - V[0]) * t, V[1] + (N[1] - V[1]) * t];
-        return `${i === 0 ? 'M' : 'L'}${f(a[0])} ${f(a[1])}Q${f(V[0])} ${f(V[1])} ${f(b[0])} ${f(b[1])}`;
+        const P = pts[(i + pts.length - 1) % pts.length];
+        const N = pts[(i + 1) % pts.length];
+        const a = { x: V.x + (P.x - V.x) * t, y: V.y + (P.y - V.y) * t };
+        const b = { x: V.x + (N.x - V.x) * t, y: V.y + (N.y - V.y) * t };
+        return `${i === 0 ? 'M' : 'L'}${f(a.x)} ${f(a.y)}Q${f(V.x)} ${f(V.y)} ${f(b.x)} ${f(b.y)}`;
       })
       .join('') + 'Z'
   );
+}
+
+/** SVG path for a hexagon with softly rounded corners. */
+export function roundedHexPath(cx: number, cy: number, R: number, t = 0.2): string {
+  return roundedPolyPath(hexVertices(cx, cy, R, 1), t);
 }
 
 export interface Axial {
