@@ -36,7 +36,9 @@ home-screen app on iPhone.
 - **Authentication → Providers → Email → Confirm email: turn ON.** Your project currently auto-confirms emails, which
   lets someone register an address they don't own. Hexagon doesn't need that setting off.
 - Leave all other providers off. There is no password sign-in in the app.
-- **Authentication → URL Configuration → Site URL:** set it to `https://vismayvchandra.github.io/Hexagon/`.
+- **Authentication → URL Configuration → Site URL (required):** set it to `https://vismayvchandra.github.io/Hexagon/`.
+  If this is left at the default (`http://localhost:3000`), anyone who clicks the link in the email lands on a dead page.
+  Also add that same URL under **Redirect URLs**.
 
 ## 4. Email sending limits (important before real users)
 
@@ -76,3 +78,13 @@ project). For real users, configure your own SMTP provider under **Project Setti
 
 `npm run dev`, then open `http://localhost:5173/?mockcloud=1`. An in-memory fake server (development builds only) lets you
 try sign-in (code `123456`) and friends without a Supabase project. Test friend codes: `AVAX2345`, `BENX2345`, `CHXE2345`.
+
+## Troubleshooting sign-in
+
+- **The email has a link but no code.** The email template is missing `{{ .Token }}` (step 2). Edit both the **Magic Link**
+  and **Confirm signup** templates, and change the subject to something like "Your Hexagon code".
+- **"Email link is invalid or has expired" / `otp_expired`.** Links are one-time, and Gmail and other mail apps often open
+  them to scan for spam, which uses them up before you click. Type the 6-digit code into the app instead. The app now catches
+  these redirects and shows a friendly message; if a link does work, it signs you in as a fallback.
+- **Link lands on `localhost:3000`.** The Site URL in step 3 is still the default.
+- **"Too many attempts".** The built-in email sender is rate-limited (step 4).

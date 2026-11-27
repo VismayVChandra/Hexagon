@@ -68,6 +68,11 @@ export function createMockBackend(): CloudBackend {
       save(db);
       return db.user;
     },
+    async setSession() {
+      db.user = { id: 'u-me', email: 'link@example.com' };
+      save(db);
+      return db.user;
+    },
     async signOut() {
       db = { user: null, profile: null, friends: [] };
       save(db);

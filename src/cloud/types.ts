@@ -50,6 +50,8 @@ export interface CloudBackend {
   sendCode(email: string): Promise<void>;
   verifyCode(email: string, code: string): Promise<CloudUser>;
   signOut(): Promise<void>;
+  /** Sign in with tokens from an email link (fallback for people who click the link instead of typing the code). */
+  setSession(accessToken: string, refreshToken: string): Promise<CloudUser>;
   /** Called when the session ends elsewhere (e.g. it expired). */
   onSignedOut(cb: () => void): () => void;
 

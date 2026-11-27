@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { USE_MOCK, cloudConfigured } from './config';
 import { CloudError, type CloudBackend, type CloudProfile, type CloudUser, type FriendRequest, type RemoteFriend } from './types';
 import { HEARTBEAT_MS, desiredPresence, isValidEmail, normalizeFriendCode, type PresenceInputs } from './presence';
+import { takeAuthRedirect } from './authRedirect';
 import { getState as getMain, subscribe as subscribeMain, updateSettings } from '../store/store';
 import { computeView } from '../lib/timer';
 
@@ -123,13 +124,24 @@ let started = false;
 export async function initCloud() {
   if (!cloudConfigured || started) return;
   started = true;
+  const redirect = takeAuthRedirect(); // set when the person arrived by clicking a link in the sign-in email
   try {
     const b = await loadBackend();
     b.onSignedOut(() => {
       if (state.phase === 'signed-in') void handleSignedOut();
     });
-    const user = await b.getUser();
-    if (!user) return set({ phase: 'signed-out' });
+    let user: CloudUser | null;
+    if (redirect?.accessToken && redirect.refreshToken) {
+      try {
+        user = await b.setSession(redirect.accessToken, redirect.refreshToken);
+      } catch {
+        user = null;
+        redirect.error = 'That sign-in link didn’t work. Request a new code and type it in here instead.';
+      }
+    } else {
+      user = await b.getUser();
+    }
+    if (!user) return set({ phase: 'signed-out', error: redirect?.error ?? null });
     set({ email: user.email });
     await enterAccount(b, user);
   } catch (e) {

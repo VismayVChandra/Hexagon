@@ -63,6 +63,13 @@ export async function createSupabaseBackend(): Promise<CloudBackend> {
       if (!u) throw new CloudError('Sign-in didn’t complete. Please try again.', 'auth');
       return u;
     },
+    async setSession(accessToken, refreshToken) {
+      const { data, error } = await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+      if (error) throw wrap(error);
+      const u = userOf(data.user ?? data.session?.user);
+      if (!u) throw new CloudError('Sign-in didn’t complete. Please try again.', 'auth');
+      return u;
+    },
     async signOut() {
       await sb.auth.signOut();
     },
