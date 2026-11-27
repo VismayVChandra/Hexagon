@@ -71,6 +71,8 @@ function sanitizeSettings(v: unknown): Settings {
     notifyNudges: typeof s.notifyNudges === 'boolean' ? s.notifyNudges : d.notifyNudges,
     nudgeHour: Math.round(clamp(s.nudgeHour, 0, 23, d.nudgeHour)),
     notifyPromptDismissed: s.notifyPromptDismissed === true,
+    cloudSync: typeof s.cloudSync === 'boolean' ? s.cloudSync : d.cloudSync,
+    accountPromptDismissed: s.accountPromptDismissed === true,
   };
 }
 

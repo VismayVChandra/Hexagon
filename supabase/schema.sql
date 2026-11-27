@@ -1,9 +1,14 @@
--- Hexagon: friends, presence and (optional) anonymous usage counts + owner dashboard backend for Supabase.
+-- Hexagon: accounts (friends, presence), whole-app sync of study data, and (optional) anonymous usage counts + owner dashboard backend for Supabase.
 -- Run this in the Supabase dashboard: SQL Editor -> New query -> paste everything -> Run.
 -- Safe to re-run, and it upgrades an earlier version of this script (8-character codes + friend requests)
 -- to the current design (6-digit code, instant friendship when a friend types it in).
 --
--- How people sign in: email + password through Supabase Auth, so a student keeps their code and friends on any phone.
+-- How people sign in: email + password through Supabase Auth, so a student keeps their code, friends and study history on any phone or laptop.
+--
+-- Study data sync: while signed in, the app keeps one copy of the student's study data (sessions, subjects, exams, cars, goals)
+-- in public.user_data, so every device they sign in on shows the same history. It is one private row per account, readable and
+-- writable only through sync_get / sync_put / sync_delete by that account. The owner of the project can see it in the dashboard
+-- like any database content, so don't promise people more than that. Students can switch syncing off and delete their copy in Settings.
 --
 -- Security model
 --   * Every table has Row Level Security ON and NO policies, so the public API cannot read or write tables directly.
@@ -78,8 +83,18 @@ create table if not exists public.admins (
   user_id uuid primary key references auth.users (id) on delete cascade
 );
 
+-- One private copy of each signed-in student's study data. `rev` goes up by one on every save, so two devices saving at the same
+-- moment can't overwrite each other: the second one is told to merge first.
+create table if not exists public.user_data (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  doc        jsonb not null,
+  rev        bigint not null default 1,
+  updated_at timestamptz not null default now()
+);
+
 alter table public.events enable row level security;
 alter table public.admins enable row level security;
+alter table public.user_data enable row level security;
 
 alter table public.profiles      enable row level security;
 alter table public.friendships   enable row level security;
@@ -465,9 +480,66 @@ begin
   return result;
 end $$;
 
+-- ---------------------------------------------------------------- study data sync
+
+-- My saved study data. If I pass the revision I already hold and nothing changed, the (large) document is left out.
+create or replace function public.sync_get(p_since bigint default null)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare r public.user_data;
+begin
+  if auth.uid() is null then raise exception 'Not signed in'; end if;
+  select * into r from public.user_data where user_id = auth.uid();
+  if not found then return jsonb_build_object('rev', 0, 'doc', null); end if;
+  if p_since is not null and p_since = r.rev then return jsonb_build_object('rev', r.rev, 'unchanged', true); end if;
+  return jsonb_build_object('rev', r.rev, 'doc', r.doc);
+end $$;
+
+-- Save my study data. Works only if nobody saved since revision p_base_rev (0 = nothing saved yet); otherwise says 'conflict'
+-- so the app merges and tries again.
+create or replace function public.sync_put(p_doc jsonb, p_base_rev bigint)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  cur public.user_data;
+  new_rev bigint;
+begin
+  if auth.uid() is null then raise exception 'Not signed in'; end if;
+  if p_doc is null or jsonb_typeof(p_doc) <> 'object' then raise exception 'Nothing to save'; end if;
+  if octet_length(p_doc::text) > 6000000 then raise exception 'Your study history is too large to sync.'; end if;
+
+  select * into cur from public.user_data where user_id = auth.uid() for update;
+  if not found then
+    if coalesce(p_base_rev, 0) <> 0 then return jsonb_build_object('status', 'conflict', 'rev', 0); end if;
+    insert into public.user_data (user_id, doc) values (auth.uid(), p_doc)
+      on conflict (user_id) do nothing
+      returning rev into new_rev;
+    if new_rev is null then
+      select rev into new_rev from public.user_data where user_id = auth.uid();
+      return jsonb_build_object('status', 'conflict', 'rev', coalesce(new_rev, 0));
+    end if;
+    return jsonb_build_object('status', 'ok', 'rev', new_rev);
+  end if;
+
+  if cur.rev <> coalesce(p_base_rev, -1) then return jsonb_build_object('status', 'conflict', 'rev', cur.rev); end if;
+  update public.user_data set doc = p_doc, rev = cur.rev + 1, updated_at = now()
+    where user_id = auth.uid()
+    returning rev into new_rev;
+  return jsonb_build_object('status', 'ok', 'rev', new_rev);
+end $$;
+
+-- Remove my saved study data.
+create or replace function public.sync_delete()
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Not signed in'; end if;
+  delete from public.user_data where user_id = auth.uid();
+end $$;
+
 -- ---------------------------------------------------------------- permissions
 
-revoke all on public.profiles, public.friendships, public.presence, public.code_attempts, public.events, public.admins from anon, authenticated;
+revoke all on public.profiles, public.friendships, public.presence, public.code_attempts, public.events, public.admins, public.user_data from anon, authenticated;
 grant select on public.profiles to authenticated; -- still limited to my own row by the policy above
 
 revoke execute on function public.new_friend_code()                               from public, anon, authenticated;
@@ -484,6 +556,9 @@ revoke execute on function public.log_event(uuid, text)                         
 revoke execute on function public.forget_device(uuid)                             from public;
 revoke execute on function public.is_admin()                                      from public, anon;
 revoke execute on function public.admin_stats(text)                               from public, anon;
+revoke execute on function public.sync_get(bigint)                                from public, anon;
+revoke execute on function public.sync_put(jsonb, bigint)                         from public, anon;
+revoke execute on function public.sync_delete()                                   from public, anon;
 
 grant execute on function public.ensure_profile(text)                             to authenticated;
 grant execute on function public.regenerate_friend_code()                         to authenticated;
@@ -498,6 +573,9 @@ grant execute on function public.log_event(uuid, text)                          
 grant execute on function public.forget_device(uuid)                              to anon, authenticated;
 grant execute on function public.is_admin()                                       to authenticated;
 grant execute on function public.admin_stats(text)                                to authenticated;
+grant execute on function public.sync_get(bigint)                                 to authenticated;
+grant execute on function public.sync_put(jsonb, bigint)                          to authenticated;
+grant execute on function public.sync_delete()                                    to authenticated;
 
 -- ---------------------------------------------------------------- make yourself the owner (run once, separately)
 -- Replace the address with the email of the account you sign in with, then run just this statement.

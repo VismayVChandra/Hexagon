@@ -39,6 +39,15 @@ export interface PresenceUpdate {
 
 export type AddFriendResult = { status: 'added' | 'already'; name: string } | { status: 'not_found' | 'self' | 'limited' };
 
+/** What the account holds of the student's study data. `doc` is absent when nothing changed since `sinceRev`, or nothing is saved yet. */
+export interface UserDataRead {
+  rev: number;
+  doc: unknown | null;
+  unchanged: boolean;
+}
+
+export type UserDataWrite = { status: 'ok'; rev: number } | { status: 'conflict'; rev: number };
+
 export type SignUpResult = { status: 'signed-in'; user: CloudUser } | { status: 'confirm-email' };
 
 /**
@@ -78,6 +87,13 @@ export interface CloudBackend {
   setPresence(p: PresenceUpdate): Promise<void>;
   clearPresence(): Promise<void>;
   deleteMyData(): Promise<void>;
+
+  /** The study data saved in my account. Pass the revision already held to learn cheaply whether it changed. */
+  getUserData(sinceRev: number | null): Promise<UserDataRead>;
+  /** Save my study data. Only succeeds if nobody saved since `baseRev` (0 = nothing saved yet); otherwise reports a conflict. */
+  putUserData(doc: unknown, baseRev: number): Promise<UserDataWrite>;
+  /** Remove the study data saved in my account. */
+  deleteUserData(): Promise<void>;
 
   /** Record one anonymous usage event for this device (see analytics.ts). */
   logEvent(deviceId: string, name: AnalyticsEvent): Promise<void>;

@@ -5,6 +5,7 @@ import { HEARTBEAT_MS, desiredPresence, normalizeFriendCode, type PresenceInputs
 import { isValidEmail, passwordProblem } from './validate';
 import { takeAuthRedirect } from './authRedirect';
 import { analytics } from './analytics';
+import { flushDataSync, isNewHere, startDataSync, stopDataSync, wipeCloudCopy } from './dataSync';
 import type { AdminStats } from './adminStats';
 import { getState as getMain, subscribe as subscribeMain, updateSettings } from '../store/store';
 import { showToast } from '../hooks/hooks';
@@ -192,6 +193,8 @@ async function enterAccount(b: CloudBackend, user: CloudUser) {
   void checkAdmin(b);
   const profile = await b.getProfile();
   if (!profile) return set({ phase: 'needs-name', error: null });
+  // A device that has never been signed in to this account takes the privacy choices already made on it (they are kept on the server).
+  if (isNewHere(profile.id)) updateSettings({ sharePresence: profile.sharePresence, shareSubject: profile.shareSubject });
   set({ phase: 'signed-in', profile, error: null });
   startSync();
 }
@@ -300,10 +303,10 @@ export async function saveName(nameRaw: string) {
   await guarded(async () => {
     const b = await loadBackend();
     const profile = await b.saveProfile(name);
-    updateSettings({ displayName: name });
     set({ profile, phase: 'signed-in', notice: null });
     writeCache();
-    startSync();
+    startSync(); // may clear another account's data from this device first,
+    updateSettings({ displayName: name }); // so the new name is set afterwards
   });
 }
 
@@ -311,6 +314,7 @@ export async function saveName(nameRaw: string) {
 export async function signOut() {
   await guarded(async () => {
     const b = await loadBackend();
+    await flushDataSync(); // whatever hasn't gone up yet goes now, so nothing is lost
     stopSync();
     await b.clearPresence().catch(() => undefined);
     await b.signOut();
@@ -329,12 +333,44 @@ async function handleAccountLost(message?: string) {
 export async function deleteCloudData() {
   await guarded(async () => {
     const b = await loadBackend();
+    await flushDataSync();
     stopSync();
     await b.deleteMyData();
     await b.signOut();
     clearCache();
     set({ phase: 'signed-out', profile: null, friends: [], email: '', notice: null, isAdmin: false });
   });
+}
+
+// ---------- study data in the account ----------
+
+/** Turn syncing of study data on or off for this device. Off keeps this device's data as it is and stops sending or receiving. */
+export function setCloudSync(on: boolean) {
+  updateSettings({ cloudSync: on });
+  if (!on) stopDataSync();
+  else if (state.phase === 'signed-in' && state.profile && backendRef) startDataSync(backendRef, state.profile.id, (m) => void handleAccountLost(m));
+}
+
+/** Remove the copy of my study data from my account (and switch syncing off here). This device keeps its own data. */
+export async function deleteSyncedCopy(): Promise<ActionResult> {
+  try {
+    const b = await loadBackend();
+    setCloudSync(false);
+    await wipeCloudCopy(b);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: messageOf(e) };
+  }
+}
+
+/** "Delete everything" on this device: if the account holds a copy, it goes too, otherwise it would simply come back. */
+export async function eraseSyncedCopyIfAny(): Promise<void> {
+  if (state.phase !== 'signed-in' || !backendRef) return;
+  try {
+    await wipeCloudCopy(backendRef);
+  } catch {
+    /* offline: the copy stays and this device will pick it up again, which the person can see */
+  }
 }
 
 // ---------- friends ----------
@@ -518,6 +554,7 @@ function startSync() {
     if (document.visibilityState === 'visible') void pushPresence(true);
   }, HEARTBEAT_MS);
   unsubMain = subscribeMain(onLocalChange);
+  if (state.profile && backendRef) startDataSync(backendRef, state.profile.id, (m) => void handleAccountLost(m));
   visListener = () => {
     if (document.visibilityState === 'visible') {
       void refresh();
@@ -528,6 +565,7 @@ function startSync() {
 }
 
 function stopSync() {
+  stopDataSync();
   window.clearInterval(pollTimer);
   window.clearInterval(beatTimer);
   unsubMain?.();

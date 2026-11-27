@@ -495,6 +495,24 @@ export function updateSettings(patch: Partial<Settings>) {
   mutate((d) => ({ ...d, settings: { ...d.settings, ...patch } }));
 }
 
+/**
+ * Account sync hands over merged data. Applied to whatever the app holds right now (so nothing typed in the
+ * meantime is lost), and quietly: no toast, no analytics.
+ */
+export function applySyncedData(fn: (d: AppData) => AppData) {
+  const next = fn(state.data);
+  if (next !== state.data) commit(next);
+}
+
+/**
+ * A different account signed in on this device: its study data must not mix with the previous account's.
+ * Clears sessions, subjects, exams and cars, and keeps this device's own preferences.
+ */
+export function clearStudyData() {
+  const keep = state.data.settings;
+  commit({ ...emptyData(), settings: { ...keep, displayName: '', lastSubjectId: undefined } });
+}
+
 export function hasDemoData(d: AppData): boolean {
   return isDemoMode(d) || d.friends.length > 0;
 }

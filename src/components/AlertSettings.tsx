@@ -9,6 +9,8 @@ import { anchorDayFor, nudgeSupport, notifyPermission, requestNotifyPermission, 
 import { nudgeMessage } from '../lib/messages';
 import { dayKey, daysBetween } from '../lib/time';
 import { CUE_TONES, type CueTone } from '../types';
+import { cloudConfigured } from '../cloud/config';
+import { useCloud } from '../cloud/cloud';
 
 /** Settings → Sounds: the tunes for timers, plus the library of study sounds. */
 export function SoundSettings() {
@@ -182,8 +184,11 @@ export function NotifyPrompt() {
   const { data } = useStore();
   const s = data.settings;
   const hasStudied = data.sessions.some((x) => !x.demo);
+  const cloud = useCloud();
   const [perm, setPerm] = useState<NotifyPermission>(() => notifyPermission());
-  if (s.notifyPromptDismissed || s.notify || !hasStudied || data.active || perm !== 'default') return null;
+  // One suggestion at a time: the account card goes first.
+  const accountFirst = cloudConfigured && cloud.phase !== 'signed-in' && !s.accountPromptDismissed;
+  if (s.notifyPromptDismissed || s.notify || !hasStudied || data.active || perm !== 'default' || accountFirst) return null;
 
   async function turnOn() {
     const p = await requestNotifyPermission();

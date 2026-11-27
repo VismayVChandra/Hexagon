@@ -3074,3 +3074,15 @@ svg.comb-hive {
   font-weight: 600;
   cursor: pointer;
 }
+
+.sync-status {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.sync-status.is-ok {
+  color: var(--primary);
+}
+.sync-status.is-warn {
+  color: var(--danger);
+}

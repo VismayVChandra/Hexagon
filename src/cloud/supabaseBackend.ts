@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CLOUD_KEY, CLOUD_URL } from './config';
 import { parseAdminStats } from './adminStats';
-import { CloudError, type AddFriendResult, type CloudBackend, type CloudProfile, type CloudUser, type PresenceUpdate, type RemoteFriend } from './types';
+import { CloudError, type AddFriendResult, type CloudBackend, type CloudProfile, type CloudUser, type PresenceUpdate, type RemoteFriend, type UserDataRead, type UserDataWrite } from './types';
 
 interface ProfileRow {
   id: string;
@@ -36,6 +36,7 @@ function wrap(e: unknown): CloudError {
   if (/not signed in|jwt|invalid claim|user from sub claim|refresh token/i.test(msg)) return new CloudError('You’ve been signed out. Please sign in again.', 'auth');
   if (/not allowed/i.test(msg) && err?.code === 'P0001') return new CloudError('Only the app’s owner can open the dashboard.', 'validation');
   if (/admin_stats|is_admin|log_event/i.test(msg) && /could not find the function|schema cache/i.test(msg)) return new CloudError('The dashboard needs the latest setup SQL. Run supabase/schema.sql again in Supabase.', 'server');
+  if (/sync_get|sync_put|sync_delete|user_data/i.test(msg) && /could not find|schema cache|does not exist/i.test(msg)) return new CloudError('Syncing needs the latest setup SQL. The app’s owner needs to run supabase/schema.sql again in Supabase.', 'server');
   if (/could not find the function|schema cache/i.test(msg)) return new CloudError('The friends database isn’t set up yet. The app’s owner needs to run the setup SQL in Supabase.', 'server');
   // Messages raised by our own SQL functions are already friendly (e.g. "Name must be 1 to 30 characters").
   if (err?.code === 'P0001') return new CloudError(msg, 'validation');
@@ -153,6 +154,18 @@ export async function createSupabaseBackend(): Promise<CloudBackend> {
     },
     async deleteMyData() {
       await run(sb.rpc('delete_my_data'));
+    },
+
+    async getUserData(sinceRev) {
+      const r = await run<{ rev: number | string; doc?: unknown; unchanged?: boolean }>(sb.rpc('sync_get', { p_since: sinceRev }));
+      return { rev: Number(r?.rev ?? 0), doc: r?.doc ?? null, unchanged: r?.unchanged === true } satisfies UserDataRead;
+    },
+    async putUserData(doc, baseRev) {
+      const r = await run<{ status: 'ok' | 'conflict'; rev: number | string }>(sb.rpc('sync_put', { p_doc: doc, p_base_rev: baseRev }));
+      return { status: r.status === 'ok' ? 'ok' : 'conflict', rev: Number(r.rev) } satisfies UserDataWrite;
+    },
+    async deleteUserData() {
+      await run(sb.rpc('sync_delete'));
     },
 
     async logEvent(deviceId, name) {

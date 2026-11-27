@@ -35,6 +35,8 @@ interface Account {
   profile: CloudProfile | null;
   friendIds: string[];
   wrongGuesses: number;
+  /** The synced study data (what Supabase keeps in public.user_data). */
+  data?: { rev: number; doc: unknown };
 }
 interface Db {
   accounts: Record<string, Account>;
@@ -274,6 +276,28 @@ export function createMockBackend(): CloudBackend {
       const a = me();
       a.profile = null;
       a.friendIds = [];
+      save();
+    },
+
+    async getUserData(sinceRev) {
+      const a = me();
+      await wait(80);
+      if (!a.data) return { rev: 0, doc: null, unchanged: false };
+      if (sinceRev != null && sinceRev === a.data.rev) return { rev: a.data.rev, doc: null, unchanged: true };
+      return { rev: a.data.rev, doc: a.data.doc, unchanged: false };
+    },
+    async putUserData(doc, baseRev) {
+      const a = me();
+      await wait(120);
+      const cur = a.data?.rev ?? 0;
+      if (cur !== baseRev) return { status: 'conflict', rev: cur };
+      a.data = { rev: cur + 1, doc };
+      save();
+      return { status: 'ok', rev: cur + 1 };
+    },
+    async deleteUserData() {
+      const a = me();
+      delete a.data;
       save();
     },
 

@@ -40,7 +40,7 @@ export function UsageNotice() {
         </button>
       </div>
       <p className="muted">
-        Hexagon counts simple things, like how many people open the app or start a session, so its maker can see what’s working. It never sends your name, subjects, topics or anything you write. Your study data stays on your device.
+        Hexagon counts simple things, like how many people open the app or start a session, so its maker can see what’s working. These counts never include your name, subjects, topics or anything you write.
       </p>
       <div className="row">
         <Link to="/settings#privacy" className="link-btn" onClick={() => updateSettings({ analyticsNoticeDismissed: true })}>

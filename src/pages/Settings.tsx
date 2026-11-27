@@ -4,13 +4,14 @@ import { exportJson, getState, hasDemoData, removeDemoData, resetEverything, upd
 import { hapticsSupported, showToast, useInstall, wakeLockSupported } from '../hooks/hooks';
 import { Field, Toggle } from '../components/bits';
 import { cloudConfigured } from '../cloud/config';
-import { deleteCloudData, renameSelf, signOut, useCloud } from '../cloud/cloud';
+import { deleteCloudData, eraseSyncedCopyIfAny, renameSelf, useCloud } from '../cloud/cloud';
 import { formatFriendCode, isCurrentCode } from '../cloud/presence';
 import type { ThemePref } from '../types';
 import { ConfirmDialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
 import { AdminLink } from '../components/AdminLink';
 import { NotificationSettings, SoundSettings } from '../components/AlertSettings';
+import { AccountSettings } from '../components/AccountCard';
 import { dayKey } from '../lib/time';
 import type { Settings } from '../types';
 
@@ -50,7 +51,7 @@ export default function SettingsPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (loc.hash === '#privacy') document.getElementById('privacy')?.scrollIntoView();
+    if (loc.hash.length > 1) document.getElementById(loc.hash.slice(1))?.scrollIntoView();
   }, [loc.hash]);
 
   function save(e: React.FormEvent) {
@@ -94,6 +95,8 @@ export default function SettingsPage() {
   return (
     <div className="page">
       <h1 className="page-title">Settings</h1>
+
+      <AccountSettings />
 
       <section className="card" aria-labelledby="look-h">
         <h2 id="look-h" className="card-title">
@@ -175,7 +178,9 @@ export default function SettingsPage() {
         <h2 id="priv-h" className="card-title">
           Privacy
         </h2>
-        <p className="muted small">Your study data stays on this device. {cloudConfigured ? 'Only friends features and the anonymous counts below use a server.' : 'Nothing is uploaded.'}</p>
+        <p className="muted small">
+          {!cloudConfigured ? 'Your study data stays on this device. Nothing is uploaded.' : live && settings.cloudSync ? 'Your study data is kept on this device and in your account. The anonymous counts below also use a server.' : 'Your study data stays on this device unless you sign in and keep it in your account. The anonymous counts below use a server.'}
+        </p>
         {cloudConfigured && (
           <Toggle
             id="s-analytics"
@@ -222,13 +227,8 @@ export default function SettingsPage() {
                   Save name
                 </button>
               </form>
-              <p className="hint">
-                Your study sessions never leave this device. Friends only see your name, and your status if you share it. Sign in on another phone with the same email and password to get your code and friends back.
-              </p>
+              <p className="hint">Friends only see your name, and your status if you share it. They never see your sessions, subjects or notes, even though those are saved in your account when syncing is on.</p>
               <div className="row">
-                <button type="button" className="btn btn-secondary" disabled={cloud.busy} onClick={() => void signOut()}>
-                  Sign out
-                </button>
                 <button type="button" className="btn btn-quiet btn-danger-text" disabled={cloud.busy} onClick={() => setConfirmDeleteCloud(true)}>
                   Delete my friends data
                 </button>
@@ -236,7 +236,7 @@ export default function SettingsPage() {
             </>
           ) : (
             <p className="muted">
-              You’re not signed in. <Link to="/friends" className="link-btn">Create an account or sign in on the Friends tab</Link> to get a code to share.
+              You’re not signed in. <Link to="/settings#account" className="link-btn">Create an account or sign in</Link> to get a code to share.
             </p>
           )}
         </section>
@@ -245,7 +245,7 @@ export default function SettingsPage() {
       <ConfirmDialog
         open={confirmDeleteCloud}
         title="Delete your friends data?"
-        message="This removes your name, friend code, friendships and shared status from the server and signs you out. Your email account stays, so you can set friends up again later. Your study sessions on this device are not affected."
+        message="This removes your name, friend code, friendships and shared status from the server and signs you out. Your email account stays, so you can set friends up again later. Your study sessions are not affected."
         confirmLabel="Delete friends data"
         danger
         onConfirm={() => {
@@ -282,7 +282,9 @@ export default function SettingsPage() {
         </h2>
         <p className="muted small">
           {storageKind === 'local'
-            ? 'Saved in this browser’s local storage. Clearing site data, or using a different browser or device, starts you from scratch — export a copy if it matters.'
+            ? live && settings.cloudSync
+              ? 'Saved in this browser and in your account, so clearing site data or switching device doesn’t lose it. Export a copy any time if you like.'
+              : 'Saved in this browser’s local storage. Clearing site data, or using a different browser or device, starts you from scratch. Sign in to keep a copy in your account, or export one.'
             : 'Browser storage is blocked, so data lasts only until you close this tab.'}
         </p>
         <div className="row">
@@ -308,7 +310,7 @@ export default function SettingsPage() {
         </h2>
         <ul className="facts">
           <li>Timers use real timestamps, so they stay correct if the page is backgrounded, refreshed or reopened.</li>
-          <li>{cloudConfigured ? 'Friends use real accounts. Shared focus rooms are simulated demos.' : 'Friends, rooms and presence are simulated demos — no server is connected.'}</li>
+          <li>{cloudConfigured ? 'One account for friends and your study history on every device. Shared focus rooms are simulated demos.' : 'Friends, rooms and presence are simulated demos — no server is connected.'}</li>
           <li>Notifications and sounds are made on your device, with no push server. Timer alerts work while the app is running; come-back reminders need the installed app on Android Chrome and are best-effort.</li>
           <li>Works offline after the first load.</li>
         </ul>
@@ -317,12 +319,12 @@ export default function SettingsPage() {
       <ConfirmDialog
         open={confirmReset}
         title="Delete everything?"
-        message="All sessions, subjects, exams, friends and settings on this device will be erased and can’t be recovered. Export first if you might want them."
+        message={live && settings.cloudSync ? 'All sessions, subjects, exams, cars and settings will be erased on this device and from your account’s cloud copy, and can’t be recovered. Export first if you might want them.' : 'All sessions, subjects, exams, friends and settings on this device will be erased and can’t be recovered. Export first if you might want them.'}
         confirmLabel="Delete everything"
         danger
         onConfirm={() => {
           setConfirmReset(false);
-          void resetEverything().then(() => {
+          void eraseSyncedCopyIfAny().then(resetEverything).then(() => {
             setForm(toForm(getState().data.settings));
             showToast('All data deleted.', 'info');
           });

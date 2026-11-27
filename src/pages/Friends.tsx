@@ -139,7 +139,7 @@ export default function Friends() {
           <h2 id="real-h" className="card-title">
             Add real friends
           </h2>
-          <p className="muted small">Create a free account to get a 6-digit code to share. When a friend types it into their app, you’re friends. Your account keeps your code and friends if you switch phones. Your study data stays on your device, and friends only see your name, and your status if you turn that on.</p>
+          <p className="muted small">Create a free account (or sign in) to get a 6-digit code to share. When a friend types it into their app, you’re friends. It’s one account for everything: your code, your friends and your study history come with you to any phone or laptop. Friends only see your name, and your status if you turn that on, never your sessions or notes.</p>
           <CloudSignIn />
         </section>
       )}

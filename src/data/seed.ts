@@ -31,6 +31,8 @@ export const DEFAULT_SETTINGS: Settings = {
   notifyNudges: true,
   nudgeHour: 18,
   notifyPromptDismissed: false,
+  cloudSync: true,
+  accountPromptDismissed: false,
 };
 
 const TOPICS: Record<string, string[]> = {

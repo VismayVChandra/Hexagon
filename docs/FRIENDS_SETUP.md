@@ -110,9 +110,11 @@ capped at 150 events a day, and repeated opens within 30 minutes count once).
 - Whoever has your code can add you, like handing over an OTP. So: wrong guesses are limited to **8 per hour per account**,
   you can **replace your code any time** (Friends → Replace my code; existing friends stay), and friends can be removed by
   either side.
-- Study sessions, subjects, notes, exams and goals **never leave the device**. The server holds only: your email (for
-  sign-in), display name, friend code, friendships, your current status, and (unless you switch it off) anonymous usage
-  counts such as "opened the app" with a random device id.
+- Your study data (sessions, subjects, notes, exams, cars and goals) is **saved to your own account, and only visible to it,
+  while you are signed in and "Keep my study data in my account" is on** (Settings → Account). Friends never see it. The server
+  holds: your email (for sign-in), display name, friend code, friendships, your current status, that one private study-data
+  copy, and (unless you switch it off) anonymous usage counts such as "opened the app" with a random device id. Whoever runs the
+  Supabase project can technically read the database, like with any app, so say that plainly if you promise privacy to people.
 - Status is **off by default**. When on, only your friends see it. The subject is hidden unless you also turn on "Also show my
   subject". The server enforces both, not just the app.
 - Status expires on its own: a few minutes after the app closes, friends see you as offline.
@@ -121,8 +123,11 @@ capped at 150 events a day, and repeated opens within 30 minutes count once).
 
 ## Things to know
 
-- **Study data is still per device.** Sessions, exams and goals live in each browser and don't sync. Only friends do. (That
-  could be built next, now that accounts exist.)
+- **Study data syncs through your account.** It is one document per account (`public.user_data`), merged on each device so
+  nothing is lost; see `src/cloud/syncMerge.ts`. It needs the latest `supabase/schema.sql` (step 1). If you have not re-run it,
+  Settings → Account says "Syncing needs the latest setup SQL" and everything keeps working on the device.
+- A different account signing in on a device does not inherit the previous account's data. A safety copy of the previous data
+  is kept in the browser's storage under `hexagon.v1.other-account`.
 - **iPhone home-screen app:** an email link opens in Safari, not in the installed app. That's fine: after you tap the
   confirmation link, go back to the app and sign in with your password.
 - 6-digit codes can be guessed (1 in a million per try), which is why guesses are rate-limited. If you expect a lot of

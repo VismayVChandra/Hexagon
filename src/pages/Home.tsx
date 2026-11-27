@@ -6,6 +6,7 @@ import { SummaryCard } from '../components/SummaryCard';
 import { HiveCard } from '../components/HiveCard';
 import { GarageCard } from '../components/GarageCard';
 import { AdminLink, UsageNotice } from '../components/AdminLink';
+import { AccountPrompt } from '../components/AccountCard';
 import { ComebackCard, NotifyPrompt } from '../components/AlertSettings';
 import { currentStreak, nextMilestone, sessionDay, STREAK_MIN_MS, subjectTotals, sessionsInRange, sum, todayMs, totalsByDay, weekMs } from '../lib/stats';
 import { MIN, addDays, daysBetween, dayKey, formatDayLabel, formatDuration, greeting, relativeDays, weekStartKey, parseDayKey, formatShortDate } from '../lib/time';
@@ -131,6 +132,7 @@ export default function Home() {
         </section>
       )}
 
+      <AccountPrompt />
       <NotifyPrompt />
       <UsageNotice />
       <AdminLink />

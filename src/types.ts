@@ -172,6 +172,10 @@ export interface Settings {
   nudgeHour: number;
   /** The one-time "want notifications?" card on Home was answered or dismissed. */
   notifyPromptDismissed: boolean;
+  /** While signed in, keep a copy of my study data in my account so every device I sign in on has it. */
+  cloudSync: boolean;
+  /** The one-time "keep your hive safe, make an account" card on Home was dismissed. */
+  accountPromptDismissed: boolean;
 }
 
 export interface AppData {
