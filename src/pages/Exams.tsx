@@ -7,6 +7,7 @@ import { HOUR, MIN, daysBetween, dayKey, formatDuration, formatShortDate, parseD
 import { Bar, EmptyState, Field, SubjectDot, subjectColor } from '../components/bits';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
+import { CourseSetupDialog } from '../components/Courses';
 
 export default function Exams() {
   const { data } = useStore();
@@ -15,6 +16,7 @@ export default function Exams() {
   const today = dayKey(now);
   const [editing, setEditing] = useState<string | 'new' | null>(null);
   const [toDelete, setToDelete] = useState<string | null>(null);
+  const [setup, setSetup] = useState(false);
   const [customGoal, setCustomGoal] = useState('');
   const [goalError, setGoalError] = useState<string>();
 
@@ -52,7 +54,15 @@ export default function Exams() {
         </button>
       </header>
 
-      {subjects.length === 0 && <p className="banner banner-info">Create a subject first (in Start studying), then add an exam for it.</p>}
+      {subjects.length === 0 && (
+        <p className="banner banner-info">
+          Add your subjects first, then their exam dates.{' '}
+          <button type="button" className="link-btn" onClick={() => setSetup(true)}>
+            Add my subjects
+          </button>
+        </p>
+      )}
+      {setup && <CourseSetupDialog open onClose={() => setSetup(false)} />}
 
       <section className="card" aria-labelledby="up-h">
         <h2 id="up-h" className="card-title">

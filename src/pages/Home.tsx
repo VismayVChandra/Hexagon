@@ -7,6 +7,7 @@ import { HiveCard } from '../components/HiveCard';
 import { GarageCard } from '../components/GarageCard';
 import { AdminLink, UsageNotice } from '../components/AdminLink';
 import { AccountPrompt, PresencePrompt } from '../components/AccountCard';
+import { MySubjectsCard } from '../components/Courses';
 import { ComebackCard, NotifyPrompt } from '../components/AlertSettings';
 import { currentStreak, nextMilestone, sessionDay, STREAK_MIN_MS, subjectTotals, sessionsInRange, sum, todayMs, totalsByDay, weekMs } from '../lib/stats';
 import { MIN, addDays, daysBetween, dayKey, formatDayLabel, formatDuration, greeting, relativeDays, weekStartKey, parseDayKey, formatShortDate } from '../lib/time';
@@ -106,6 +107,8 @@ export default function Home() {
           )}
         </div>
       </section>
+
+      <MySubjectsCard />
 
       {!install.standalone && !settings.installHintDismissed && (install.canPrompt || install.ios) && (
         <section className="card install-card" aria-labelledby="inst-h">
