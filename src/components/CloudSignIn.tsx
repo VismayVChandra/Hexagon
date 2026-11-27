@@ -44,9 +44,9 @@ export function CloudSignIn() {
         }}
       >
         <p>
-          We emailed a code to <strong>{c.email}</strong>. Type it below. It can take a minute to arrive, so check spam too.
+          We emailed <strong>{c.email}</strong>. If the email shows a 6-digit code, type it below. If it only has a sign-in link, open that link on this device instead. It can take a minute to arrive, so check spam too.
         </p>
-        <Field label="Code from the email" htmlFor="cloud-code">
+        <Field label="6-digit code (if your email has one)" htmlFor="cloud-code">
           <input id="cloud-code" inputMode="numeric" autoComplete="one-time-code" autoFocus value={code} maxLength={12} aria-invalid={!!c.error} onChange={(e) => setCode(e.target.value)} />
         </Field>
         {err}

@@ -16,20 +16,32 @@ to be public. What's left is installing the database schema and checking a few a
 This creates the profile, friendship and presence tables, locks them completely (Row Level Security with no direct
 access), and adds the functions the app calls. Until this step is done, signing in works but adding friends will fail.
 
-## 2. Make the sign-in email contain a code (required)
+## 2. Choose how people sign in
 
-Hexagon signs people in with a 6-digit code, not a link, because links open in a different browser from an installed
-home-screen app on iPhone.
+Supabase's **built-in email sender can't change the email template**: it always sends a plain "Sign in" link. (The dashboard says
+"Set up custom SMTP to edit templates".) You have two options.
 
-1. **Authentication → Emails → Templates → Magic Link** (the one used for passwordless sign-in).
-2. Make sure the body contains `{{ .Token }}`. For example:
+**Option A: use the link (works today, no extra accounts).** Do step 3 (Site URL). The link in the email then returns to
+Hexagon and signs the person in. Limits: mail apps like Gmail sometimes open the link first and use it up ("link expired"),
+and on iPhone the link opens in Safari, not in the installed home-screen app, so it signs in there instead.
+
+**Option B: use a 6-digit code (recommended for real users).** Connect your own email sender, then put the code in the template.
+
+1. **Project Settings → Authentication → SMTP Settings → Enable custom SMTP.** Any provider works. Quick choices:
+   - *Gmail:* host `smtp.gmail.com`, port `465`, username = your Gmail address, password = a Google **App password**
+     (Google Account → Security → 2-Step Verification → App passwords). About 500 emails a day, sent from your Gmail address.
+   - *Brevo or Resend:* both have free tiers and are better for sending to many people (Resend needs a domain you own to
+     email anyone but yourself).
+2. **Authentication → Emails → Templates → Magic Link** (editable once SMTP is on). Make the body contain `{{ .Token }}`:
 
    ```html
    <h2>Your Hexagon code</h2>
    <p>Enter this code in the app: <strong>{{ .Token }}</strong></p>
    ```
 
-3. Save. (Also edit the **Confirm signup** template the same way: first-time sign-ins use that one.)
+   Set the subject to "Your Hexagon code". Do the same for **Confirm signup** (first-time sign-ins use that one).
+
+Never paste the SMTP password or any secret key into the app, the repo or a chat.
 
 ## 3. Recommended auth settings
 
@@ -81,8 +93,8 @@ try sign-in (code `123456`) and friends without a Supabase project. Test friend 
 
 ## Troubleshooting sign-in
 
-- **The email has a link but no code.** The email template is missing `{{ .Token }}` (step 2). Edit both the **Magic Link**
-  and **Confirm signup** templates, and change the subject to something like "Your Hexagon code".
+- **The email has a link but no code.** You're on the built-in sender, which can't be customised, or the template is missing
+  `{{ .Token }}`. Use the link (option A) or set up custom SMTP (option B).
 - **"Email link is invalid or has expired" / `otp_expired`.** Links are one-time, and Gmail and other mail apps often open
   them to scan for spam, which uses them up before you click. Type the 6-digit code into the app instead. The app now catches
   these redirects and shows a friendly message; if a link does work, it signs you in as a fallback.
