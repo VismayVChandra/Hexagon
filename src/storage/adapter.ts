@@ -59,7 +59,7 @@ function sanitizeSettings(v: unknown): Settings {
     ambient: AMBIENT_IDS.find((a) => a === s.ambient) ?? 'off',
     ambientVolume: clamp(s.ambientVolume, 0, 1, d.ambientVolume),
     haptics: typeof s.haptics === 'boolean' ? s.haptics : d.haptics,
-    sharePresence: typeof s.sharePresence === 'boolean' ? s.sharePresence : false,
+    sharePresence: typeof s.sharePresence === 'boolean' ? s.sharePresence : d.sharePresence,
     shareSubject: typeof s.shareSubject === 'boolean' ? s.shareSubject : false,
     lastSubjectId: isStr(s.lastSubjectId) ? s.lastSubjectId : undefined,
     installHintDismissed: s.installHintDismissed === true,

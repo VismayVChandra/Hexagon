@@ -29,14 +29,20 @@ describe('parseAppData', () => {
     expect(parsed.sessions.map((s) => s.id)).toEqual(['ok']);
   });
 
-  it('clamps out-of-range settings and keeps privacy defaults off', () => {
+  it('clamps out-of-range settings; friends see you studying by default, but never your subject', () => {
     const d = emptyData() as unknown as Record<string, unknown>;
     d.settings = { dailyGoalMin: 999999, pomodoro: { focusMin: -4 } };
     const s = parseAppData(d)!.settings;
     expect(s.dailyGoalMin).toBe(720);
     expect(s.pomodoro.focusMin).toBe(1);
-    expect(s.sharePresence).toBe(false);
+    expect(s.sharePresence).toBe(true);
     expect(s.shareSubject).toBe(false);
+  });
+
+  it('keeps a saved choice to study privately', () => {
+    const d = emptyData() as unknown as Record<string, unknown>;
+    d.settings = { sharePresence: false };
+    expect(parseAppData(d)!.settings.sharePresence).toBe(false);
   });
 
   it('drops an active session with an invalid timer config', () => {

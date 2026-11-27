@@ -20,7 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ambient: 'off',
   ambientVolume: 0.5,
   haptics: true,
-  sharePresence: false,
+  sharePresence: true,
   shareSubject: false,
   installHintDismissed: false,
   analytics: true,

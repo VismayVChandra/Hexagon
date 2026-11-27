@@ -151,7 +151,7 @@ export interface Settings {
   ambientVolume: number;
   /** Short vibrations on key actions, where the browser supports them. */
   haptics: boolean;
-  /** Privacy: appear to friends as "studying" while in a session. Off by default. */
+  /** Privacy: appear to friends as "studying" while in a session. On by default, and easy to switch off in Settings. */
   sharePresence: boolean;
   /** Privacy: also show the subject. Off by default. */
   shareSubject: boolean;

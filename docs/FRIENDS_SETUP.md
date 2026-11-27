@@ -115,8 +115,9 @@ capped at 150 events a day, and repeated opens within 30 minutes count once).
   holds: your email (for sign-in), display name, friend code, friendships, your current status, that one private study-data
   copy, and (unless you switch it off) anonymous usage counts such as "opened the app" with a random device id. Whoever runs the
   Supabase project can technically read the database, like with any app, so say that plainly if you promise privacy to people.
-- Status is **off by default**. When on, only your friends see it. The subject is hidden unless you also turn on "Also show my
-  subject". The server enforces both, not just the app.
+- Status is **on by default** in the app (new installs), and the sign-up step says so. Only your friends see it, and each person can switch it off in
+  Settings → Privacy. The subject stays hidden unless they also turn on "Also show my subject". The server enforces both, not just the app.
+  People who had already chosen (or never touched it before this change) keep their saved setting; nobody is switched on retroactively.
 - Status expires on its own: a few minutes after the app closes, friends see you as offline.
 - **Settings → Friends → Delete my friends data** removes your name, code, friendships and status from the server. (Your
   email account itself stays, and can be removed from the Supabase dashboard under Authentication → Users.)

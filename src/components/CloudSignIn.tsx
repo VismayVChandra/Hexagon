@@ -116,6 +116,7 @@ export function CloudSignIn() {
         {notice}
         {invite}
         <p>You’re in. What should your friends call you?</p>
+        <p className="muted small">Friends you add will be able to see when you’re studying (never your subject, sessions or notes). You can switch that off any time in Settings → Privacy.</p>
         <Field label="Your name" htmlFor="cloud-name" hint="1 to 30 characters. This is what your friends see.">
           <input id="cloud-name" autoComplete="given-name" autoFocus value={name} maxLength={30} aria-invalid={!!c.error} onChange={(e) => setName(e.target.value)} />
         </Field>
