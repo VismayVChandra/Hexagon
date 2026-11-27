@@ -12,7 +12,7 @@ import type { GarageItem } from '../types';
 export type BodyStyle = 'hatch' | 'sedan' | 'suv' | 'coupe' | 'supercar' | 'limo';
 
 export interface Tier {
-  n: 1 | 2 | 3 | 4 | 5;
+  n: 1 | 2 | 3 | 4 | 5 | 6;
   name: string;
   /** Focus time needed to finish a car in this tier. */
   buildMin: number;
@@ -25,6 +25,7 @@ export const TIERS: Tier[] = [
   { n: 3, name: 'Premium', buildMin: 60, blurb: 'A solid hour of focus.' },
   { n: 4, name: 'Performance', buildMin: 90, blurb: 'Power and presence.' },
   { n: 5, name: 'Legends', buildMin: 180, blurb: 'Three hours for the dream cars.' },
+  { n: 6, name: 'Hypercars', buildMin: 300, blurb: 'Five hours for the cars everyone dreams of.' },
 ];
 
 export interface Car {
@@ -90,6 +91,7 @@ export const CARS: Car[] = [
   car('mercedes-e-class', 'Mercedes-Benz', 'E-Class', 4, 'sedan', '#8D99AE'),
   car('mercedes-gle', 'Mercedes-Benz', 'GLE', 4, 'suv', '#5C4B8A'),
   car('porsche-macan', 'Porsche', 'Macan', 4, 'suv', '#C79A2B'),
+  car('jeep-wagoneer', 'Jeep', 'Wagoneer', 4, 'suv', '#2F4A3C'),
 
   // Tier 5: Legends (180 min)
   car('porsche-911', 'Porsche', '911', 5, 'coupe', '#C1121F', '#FFFFFF'),
@@ -101,6 +103,25 @@ export const CARS: Car[] = [
   car('lamborghini-urus', 'Lamborghini', 'Urus', 5, 'suv', '#F5A300', '#101418'),
   car('rolls-royce-ghost', 'Rolls-Royce', 'Ghost', 5, 'limo', '#E9E4D8'),
   car('rolls-royce-phantom', 'Rolls-Royce', 'Phantom', 5, 'limo', '#1B1F3B'),
+  car('mclaren-720s', 'McLaren', '720S', 5, 'supercar', '#F26B21', '#101418'),
+  car('lamborghini-aventador', 'Lamborghini', 'Aventador', 5, 'supercar', '#2A5CAA', '#101418'),
+  car('lamborghini-revuelto', 'Lamborghini', 'Revuelto', 5, 'supercar', '#E9EBEF', '#F5A300'),
+  car('ferrari-488', 'Ferrari', '488 GTB', 5, 'supercar', '#E8B70D', '#101418'),
+  car('nissan-gtr', 'Nissan', 'GT-R', 5, 'coupe', '#E5E7EB', '#C5283D'),
+  car('corvette-c8', 'Chevrolet', 'Corvette C8', 5, 'supercar', '#E0C200', '#101418'),
+  car('aston-martin-vantage', 'Aston Martin', 'Vantage', 5, 'coupe', '#6E7B5C', '#E9EBEF'),
+
+  // Tier 6: Hypercars (300 min)
+  car('bugatti-chiron', 'Bugatti', 'Chiron', 6, 'supercar', '#1C69D4', '#101418'),
+  car('bugatti-veyron', 'Bugatti', 'Veyron', 6, 'supercar', '#1F2A4D', '#B87333'),
+  car('koenigsegg-jesko', 'Koenigsegg', 'Jesko', 6, 'supercar', '#3A3F45', '#E5533D'),
+  car('pagani-huayra', 'Pagani', 'Huayra', 6, 'supercar', '#B21E3B', '#C9A227'),
+  car('ferrari-laferrari', 'Ferrari', 'LaFerrari', 6, 'supercar', '#D00000', '#101418'),
+  car('mclaren-p1', 'McLaren', 'P1', 6, 'supercar', '#F5A300', '#101418'),
+  car('porsche-918', 'Porsche', '918 Spyder', 6, 'supercar', '#A9AEB5', '#1D7F5A'),
+  car('rimac-nevera', 'Rimac', 'Nevera', 6, 'supercar', '#1AA6B7', '#101418'),
+  car('aston-martin-valkyrie', 'Aston Martin', 'Valkyrie', 6, 'supercar', '#2F8F83', '#F4D000'),
+  car('mercedes-amg-one', 'Mercedes-Benz', 'AMG One', 6, 'supercar', '#C9CED6', '#00A99D'),
 ];
 
 export const carById = (id: string | undefined) => CARS.find((c) => c.id === id);

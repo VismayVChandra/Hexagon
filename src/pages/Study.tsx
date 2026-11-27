@@ -7,7 +7,7 @@ import { useFriendRows } from '../cloud/useFriendRows';
 import { haptic, primeAudio, useNow } from '../hooks/hooks';
 import { formatDuration, MIN } from '../lib/time';
 import type { PomodoroConfig, Scene, TimerMode } from '../types';
-import { CARS, TIERS, buildMs, carById, carsInTier } from '../data/cars';
+import { CARS, TIERS, buildMs, carById, carsInTier, type Tier } from '../data/cars';
 import { CarArt } from '../components/CarArt';
 import { CarPhoto } from '../components/CarPhoto';
 import { Bar, DemoBadge, Field, FriendAvatar, StateBadge, SubjectDot } from '../components/bits';
@@ -344,7 +344,7 @@ export default function Study() {
               </div>
               <p className="muted small">{TIERS[tier - 1].blurb}</p>
               <div role="radiogroup" aria-label="Choose a car" className="car-picker">
-                {carsInTier(tier as 1 | 2 | 3 | 4 | 5).map((car) => {
+                {carsInTier(tier as Tier['n']).map((car) => {
                   const owned = collected.has(car.id);
                   const progress = owned ? 1 : Math.min(1, (data.builds[car.id] ?? 0) / buildMs(car));
                   const selected = carId === car.id;

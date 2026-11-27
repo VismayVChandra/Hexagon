@@ -11,6 +11,20 @@ export interface CarPhoto {
 }
 
 export const CAR_PHOTOS: Record<string, CarPhoto> = {
+  "aston-martin-valkyrie": {
+    "title": "2019 Aston Martin Valkyrie AMR Pro 6.5 Front.jpg",
+    "author": "Vauxford",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2019_Aston_Martin_Valkyrie_AMR_Pro_6.5_Front.jpg"
+  },
+  "aston-martin-vantage": {
+    "title": "2019 Aston Martin Vantage, side view (Greenwich 2018).jpg",
+    "author": "Mr.choppers",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2019_Aston_Martin_Vantage,_side_view_(Greenwich_2018).jpg"
+  },
   "audi-a3": {
     "title": "AUDI A3 SPORTBACK (Typ 8Y) China (10).jpg",
     "author": "Dinkun Chen",
@@ -88,6 +102,34 @@ export const CAR_PHOTOS: Record<string, CarPhoto> = {
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
     "page": "https://commons.wikimedia.org/wiki/File:2019_BMW_X5_M50d_Automatic_3.0.jpg"
   },
+  "bugatti-chiron": {
+    "title": "Bugatti Chiron 2.jpg",
+    "author": "MrWalkr",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Bugatti_Chiron_2.jpg"
+  },
+  "bugatti-veyron": {
+    "title": "2005 Bugatti Veyron Prototype sp25.jpg",
+    "author": "Calreyn88",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2005_Bugatti_Veyron_Prototype_sp25.jpg"
+  },
+  "corvette-c8": {
+    "title": "2023 Chevrolet Corvette C8 Stingray Auto 3.jpg",
+    "author": "Calreyn88",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2023_Chevrolet_Corvette_C8_Stingray_Auto_3.jpg"
+  },
+  "ferrari-488": {
+    "title": "Ferrari 488 GTB at Geneva International Motor Show 2015 (Ank Kumar) 08.jpg",
+    "author": "Ank kumar",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Ferrari_488_GTB_at_Geneva_International_Motor_Show_2015_(Ank_Kumar)_08.jpg"
+  },
   "ferrari-f8": {
     "title": "2020 Ferrari F8 Tributo sf25.jpg",
     "author": "Calreyn88",
@@ -95,12 +137,47 @@ export const CAR_PHOTOS: Record<string, CarPhoto> = {
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
     "page": "https://commons.wikimedia.org/wiki/File:2020_Ferrari_F8_Tributo_sf25.jpg"
   },
+  "ferrari-laferrari": {
+    "title": "Ferrari LaFerrari F150 (48568697802).jpg",
+    "author": "Mustang Joe",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "page": "https://commons.wikimedia.org/wiki/File:Ferrari_LaFerrari_F150_(48568697802).jpg"
+  },
+  "jeep-wagoneer": {
+    "title": "Jeep Grand Wagoneer (WS) 1X7A1911.jpg",
+    "author": "Alexander-93",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Jeep_Grand_Wagoneer_(WS)_1X7A1911.jpg"
+  },
+  "koenigsegg-jesko": {
+    "title": "2024 Koenigsegg Jesko Absolut 2.jpg",
+    "author": "Calreyn88",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2024_Koenigsegg_Jesko_Absolut_2.jpg"
+  },
+  "lamborghini-aventador": {
+    "title": "Lamborghini Aventador 5.jpg",
+    "author": "Calreyn88",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Lamborghini_Aventador_5.jpg"
+  },
   "lamborghini-huracan": {
     "title": "Lamborghini Huracan 15.jpg",
     "author": "Calreyn88",
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
     "page": "https://commons.wikimedia.org/wiki/File:Lamborghini_Huracan_15.jpg"
+  },
+  "lamborghini-revuelto": {
+    "title": "2024 Lamborghini Revuelto 15.jpg",
+    "author": "Calreyn88",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2024_Lamborghini_Revuelto_15.jpg"
   },
   "lamborghini-urus": {
     "title": "Lamborghini Urus 20180306 Genf 2018.jpg",
@@ -137,6 +214,20 @@ export const CAR_PHOTOS: Record<string, CarPhoto> = {
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
     "page": "https://commons.wikimedia.org/wiki/File:Maruti_Suzuki_Swift_4456.JPG"
   },
+  "mclaren-720s": {
+    "title": "2021 McLaren 720S 8.jpg",
+    "author": "Calreyn88",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2021_McLaren_720S_8.jpg"
+  },
+  "mclaren-p1": {
+    "title": "2013 McLaren P1 XP05 2.jpg",
+    "author": "Calreyn88",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2013_McLaren_P1_XP05_2.jpg"
+  },
   "mercedes-a-class": {
     "title": "MERCEDES-BENZ A-CLASS (W177) China.jpg",
     "author": "Dinkun Chen",
@@ -150,6 +241,13 @@ export const CAR_PHOTOS: Record<string, CarPhoto> = {
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
     "page": "https://commons.wikimedia.org/wiki/File:AMG_GT_R_Roadster,_GIMS_2019,_Le_Grand-Saconnex_(GIMS0598).jpg"
+  },
+  "mercedes-amg-one": {
+    "title": "Mercedes-AMG One at the 2022 Goodwood Festival of Speed.jpg",
+    "author": "Andrew Basterfield",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "page": "https://commons.wikimedia.org/wiki/File:Mercedes-AMG_One_at_the_2022_Goodwood_Festival_of_Speed.jpg"
   },
   "mercedes-c-class": {
     "title": "MERCEDES-BENZ C-CLASS LWB (V206) China.jpg",
@@ -172,6 +270,20 @@ export const CAR_PHOTOS: Record<string, CarPhoto> = {
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
     "page": "https://commons.wikimedia.org/wiki/File:MERCEDES-BENZ_GLE_(W167)_China_(11).jpg"
   },
+  "nissan-gtr": {
+    "title": "NISSAN GT-R (R35) China (6).jpg",
+    "author": "Dinkun Chen",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:NISSAN_GT-R_(R35)_China_(6).jpg"
+  },
+  "pagani-huayra": {
+    "title": "2019 Pagani Huayra Roadster RHD Rosso Dubai 2.jpg",
+    "author": "Calreyn88",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2019_Pagani_Huayra_Roadster_RHD_Rosso_Dubai_2.jpg"
+  },
   "porsche-911": {
     "title": "Porsche 911 GT3 Touring, IAA 2017, Frankfurt (1Y7A2766).jpg",
     "author": "Matti Blume",
@@ -179,12 +291,26 @@ export const CAR_PHOTOS: Record<string, CarPhoto> = {
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
     "page": "https://commons.wikimedia.org/wiki/File:Porsche_911_GT3_Touring,_IAA_2017,_Frankfurt_(1Y7A2766).jpg"
   },
+  "porsche-918": {
+    "title": "2015 Porsche 918 Spyder (14567).jpg",
+    "author": "Calreyn88",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2015_Porsche_918_Spyder_(14567).jpg"
+  },
   "porsche-macan": {
     "title": "2022 Porsche Macan 1X7A6050.jpg",
     "author": "Alexander Migl",
     "license": "CC BY-SA 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
     "page": "https://commons.wikimedia.org/wiki/File:2022_Porsche_Macan_1X7A6050.jpg"
+  },
+  "rimac-nevera": {
+    "title": "2024 Rimac Nevera 15th Anniversary Edition (31670).jpg",
+    "author": "Calreyn88",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "page": "https://commons.wikimedia.org/wiki/File:2024_Rimac_Nevera_15th_Anniversary_Edition_(31670).jpg"
   },
   "rolls-royce-ghost": {
     "title": "Rolls-Royce Ghost, GIMS 2019, Le Grand-Saconnex (GIMS1251).jpg",

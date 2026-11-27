@@ -138,8 +138,8 @@ describe('car catalog', () => {
   it('has unique ids and a sensible set of brands', () => {
     expect(new Set(CARS.map((c) => c.id)).size).toBe(CARS.length);
     const brands = new Set(CARS.map((c) => c.brand));
-    expect(brands.size).toBe(10);
-    for (const b of ['BMW', 'Audi', 'Mercedes-Benz', 'Toyota', 'Porsche', 'Ferrari', 'Lamborghini', 'Rolls-Royce', 'Tesla', 'Maruti Suzuki']) expect(brands.has(b)).toBe(true);
+    expect(brands.size).toBeGreaterThanOrEqual(10);
+    for (const b of ['BMW', 'Audi', 'Mercedes-Benz', 'Toyota', 'Porsche', 'Ferrari', 'Lamborghini', 'Rolls-Royce', 'Tesla', 'Maruti Suzuki', 'Jeep', 'McLaren', 'Bugatti', 'Pagani', 'Koenigsegg', 'Rimac']) expect(brands.has(b)).toBe(true);
   });
   it('fills every tier, and each car takes its tier’s build time', () => {
     for (const t of TIERS) {
@@ -148,6 +148,11 @@ describe('car catalog', () => {
       expect(cars.every((c) => c.buildMin === t.buildMin)).toBe(true);
     }
     expect(TIERS.map((t) => t.buildMin)).toEqual([...TIERS.map((t) => t.buildMin)].sort((a, b) => a - b));
+  });
+  it('has the Jeep Wagoneer and a hypercar tier at the top', () => {
+    expect(carById('jeep-wagoneer')?.name).toBe('Jeep Wagoneer');
+    expect(TIERS.at(-1)?.name).toBe('Hypercars');
+    expect(carsInTier(6).length).toBeGreaterThanOrEqual(8);
   });
   it('names cars as brand and model', () => {
     expect(carById('bmw-x5')?.name).toBe('BMW X5');
