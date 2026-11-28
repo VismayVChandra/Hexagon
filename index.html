@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Hexagon — study, together and quietly</title>
     <meta name="description" content="A calm study companion: start a session in seconds, focus alongside friends, track effort by subject and prepare for exams. Your data stays on your device." />
-    <meta name="theme-color" content="#F4EFE4" />
+    <meta name="theme-color" content="#F7F1E5" />
     <meta name="color-scheme" content="light dark" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
@@ -28,7 +28,7 @@
           var dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.dataset.theme = dark ? 'dark' : 'light';
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute('content', dark ? '#121816' : '#F4EFE4');
+          if (m) m.setAttribute('content', dark ? '#0E1916' : '#F7F1E5');
         } catch (e) {}
       })();
     </script>

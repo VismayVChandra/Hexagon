@@ -8,6 +8,8 @@ import { Bar, EmptyState, Field, SubjectDot, subjectColor } from '../components/
 import { CalendarHeat, StackedChart } from '../components/Charts';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
+import { HiveCard } from '../components/HiveCard';
+import { GarageCard } from '../components/GarageCard';
 
 const PAGE = 40;
 
@@ -81,6 +83,10 @@ export default function Progress() {
           <Icon name="plus" size={16} /> Log past session
         </button>
       </header>
+
+      {/* The hive and the garage live here now, so Home can stay focused on starting a session. */}
+      <HiveCard sessions={sessions} now={now} />
+      {(settings.scene === 'car' || data.garage.length > 0 || Object.keys(data.builds).length > 0) && <GarageCard garage={data.garage} builds={data.builds} />}
 
       <div className="filters">
         <div role="radiogroup" aria-label="Date range" className="segmented segmented-sm">

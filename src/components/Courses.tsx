@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addSubject, saveExam, startSession, useStore, validateSubjectName } from '../store/store';
 import { haptic, primeAudio, showToast } from '../hooks/hooks';
-import { dayKey, daysBetween, isValidDayKey, relativeDays } from '../lib/time';
+import { dayKey, daysBetween, formatDuration, isValidDayKey, relativeDays } from '../lib/time';
+import { sessionDay } from '../lib/stats';
 import type { Exam, Subject } from '../types';
+import { Bee } from './Bee';
 import { Dialog } from './Dialog';
 import { Icon } from './Icon';
-import { SubjectDot } from './bits';
+import { SubjectDot, subjectColor } from './bits';
 
 /** The next exam (today or later) for each subject, soonest first. */
 export function nextExamBySubject(exams: Exam[], today: string): Map<string, Exam> {
@@ -198,7 +200,93 @@ export function CourseSetupDialog({ open, onClose }: { open: boolean; onClose: (
   );
 }
 
-/** Home: every subject as a one-tap "start studying" button, with the exam countdown. */
+/** Short exam badge for a subject tile: "Exam today", "Exam tomorrow", "Exam in 18d". */
+export function examBadge(date: string, today: string): string {
+  const n = daysBetween(today, date);
+  return n === 0 ? 'Exam today' : n === 1 ? 'Exam tomorrow' : `Exam in ${n}d`;
+}
+
+/** Home: "Start studying". Every subject is a big one-tap tile with its exam countdown. */
+export function SubjectTiles({ today }: { today: string }) {
+  const { data } = useStore();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const mine = data.subjects.filter((s) => !s.demo);
+  const next = nextExamBySubject(data.exams, today);
+  const busy = !!data.active;
+  const doneToday = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const s of data.sessions) if (sessionDay(s) === today) out.set(s.subjectId, (out.get(s.subjectId) ?? 0) + s.studiedMs);
+    return out;
+  }, [data.sessions, today]);
+
+  function study(subject: Subject) {
+    primeAudio();
+    haptic('press', data.settings.haptics);
+    const r = startSession({ subjectId: subject.id, topic: '', goal: '', config: { mode: 'stopwatch' }, friendIds: [] });
+    if (r.ok) navigate('/session');
+    else showToast(r.error, 'error');
+  }
+
+  if (mine.length === 0) {
+    return (
+      <section className="card start-empty" aria-labelledby="start-h">
+        <Bee pose="waving" size={72} />
+        <div className="start-empty-copy">
+          <h2 id="start-h" className="t-title">
+            Add your subjects
+          </h2>
+          <p className="muted small">Add them once, then start any of them with one tap. Exam dates are optional and give you a countdown.</p>
+        </div>
+        <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}>
+          <Icon name="plus" size={18} /> Add my subjects
+        </button>
+        {open && <CourseSetupDialog open onClose={() => setOpen(false)} />}
+      </section>
+    );
+  }
+
+  return (
+    <section className="start" aria-labelledby="start-h">
+      <div className="start-head">
+        <h2 id="start-h" className="t-title">
+          Start studying
+        </h2>
+        <button type="button" className="link-btn" onClick={() => setOpen(true)}>
+          Edit
+        </button>
+      </div>
+      {busy && <p className="muted small">A session is in progress. Return to it to start another.</p>}
+      <div className="subject-tiles">
+        {mine.map((s) => {
+          const ex = next.get(s.id);
+          const soon = ex ? daysBetween(today, ex.date) <= 7 : false;
+          const ms = doneToday.get(s.id) ?? 0;
+          return (
+            <button key={s.id} type="button" className="subject-tile" disabled={busy} onClick={() => study(s)} aria-label={`Start ${s.name}`}>
+              <span className="tile-top">
+                <span className="tile-hex" style={{ background: subjectColor(s) }} aria-hidden="true" />
+                <span className={`tag${soon ? ' tag-honey' : ''}`}>{ex ? examBadge(ex.date, today) : 'No exam'}</span>
+              </span>
+              <span className="tile-bottom">
+                <span className="tile-name">{s.name}</span>
+                <span className="tile-foot">
+                  <span className="tile-sub">{ms > 0 ? `Today · ${formatDuration(ms)}` : 'Not yet today'}</span>
+                  <span className="tile-play" aria-hidden="true">
+                    <Icon name="play" size={14} />
+                  </span>
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {open && <CourseSetupDialog open onClose={() => setOpen(false)} />}
+    </section>
+  );
+}
+
+/** Exams page: every subject as a one-tap "start studying" button, with the exam countdown. */
 export function MySubjectsCard() {
   const { data } = useStore();
   const navigate = useNavigate();

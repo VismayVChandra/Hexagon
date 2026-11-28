@@ -121,7 +121,7 @@ function Shell() {
   }, [loc.pathname]);
 
   return (
-    <div className={`shell${inSession ? ' shell-session' : ''}`}>
+    <div className={`shell${inSession ? ' shell-session' : ''}${loc.pathname === '/' ? ' shell-home' : ''}`}>
       <a href="#main" className="skip-link" onClick={(e) => { e.preventDefault(); mainRef.current?.focus(); }}>
         Skip to content
       </a>
@@ -153,8 +153,11 @@ function Shell() {
           <NavLink to={active ? '/session' : '/study'} className="nav-study" aria-label={active ? 'Return to session' : 'Start studying'}>
             <span className="nav-study-hex">
               <Icon name={active ? 'clock' : 'play'} size={22} />
+              <span className="nav-study-in" aria-hidden="true">
+                {active ? 'Session' : 'Study'}
+              </span>
             </span>
-            <span>{active ? 'Session' : 'Study'}</span>
+            <span className="nav-study-out">{active ? 'Session' : 'Study'}</span>
           </NavLink>
           <NavLink to="/friends" className="nav-link">
             <Icon name="users" />

@@ -5,7 +5,7 @@ import { useMediaQuery } from '../hooks/hooks';
 export type ResolvedTheme = 'light' | 'dark';
 
 /** Browser/status-bar colour for each theme (matches --bg). */
-export const THEME_COLOR: Record<ResolvedTheme, string> = { light: '#F4EFE4', dark: '#121816' };
+export const THEME_COLOR: Record<ResolvedTheme, string> = { light: '#F7F1E5', dark: '#0E1916' };
 
 export function resolveTheme(pref: ThemePref, systemDark: boolean): ResolvedTheme {
   return pref === 'system' ? (systemDark ? 'dark' : 'light') : pref;
