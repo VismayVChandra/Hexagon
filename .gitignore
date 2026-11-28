@@ -3,3 +3,7 @@ dist
 *.local
 .DS_Store
 .claude/
+
+# raw downloaded 3D models for the pilot (large, source files)
+models-test/incoming/*
+!models-test/incoming/README.txt

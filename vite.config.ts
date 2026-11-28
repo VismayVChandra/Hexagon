@@ -26,8 +26,8 @@ function precacheServiceWorker(): Plugin {
         }
       };
       walk(outDir);
-      // Car photos (about 1.5 MB) are cached the first time they are shown instead of on install.
-      const precache = files.filter((f) => f !== 'sw.js' && !f.endsWith('.map') && !f.startsWith('cars/')).map((f) => (f === 'index.html' ? './' : './' + f));
+      // Car photos and the real 3D models (about 20 MB) are cached the first time they are shown instead of on install.
+      const precache = files.filter((f) => f !== 'sw.js' && !f.endsWith('.map') && !f.startsWith('cars/') && !f.startsWith('models/')).map((f) => (f === 'index.html' ? './' : './' + f));
       const buildId = Date.now().toString(36);
       const template = readFileSync('sw/sw.template.js', 'utf8');
       const out = template

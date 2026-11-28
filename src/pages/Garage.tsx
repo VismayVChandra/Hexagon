@@ -6,6 +6,7 @@ import { Bar } from '../components/bits';
 import { CarArt } from '../components/CarArt';
 import { CarPhoto } from '../components/CarPhoto';
 import { CAR_PHOTOS } from '../data/carPhotos';
+import { CAR_MODELS } from '../data/carModels';
 
 /** Every car you can build, grouped by tier. Finished cars are in colour; the rest are outlines with their progress. */
 export default function Garage() {
@@ -109,6 +110,23 @@ export default function Garage() {
                 ) : (
                   ph.license
                 )}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="muted small">
+          Some finished cars are shown as real 3D models (made by other people, shrunk for phones, used under CC BY 4.0):
+        </p>
+        <ul>
+          {CARS.map((car) => {
+            const m = CAR_MODELS[car.id];
+            if (!m) return null;
+            return (
+              <li key={car.id}>
+                <strong>{car.name}</strong>: “<a href={m.page} target="_blank" rel="noreferrer noopener">{m.title}</a>” by {m.author},{' '}
+                <a href={m.licenseUrl} target="_blank" rel="noreferrer noopener">
+                  {m.license}
+                </a>
               </li>
             );
           })}

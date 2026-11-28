@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { PARTS, partStates, type Car } from '../data/cars';
 import { SPECS, buildShape, clamp01, ease } from '../lib/carShape';
+import { CAR_MODELS } from '../data/carModels';
 
 /**
  * The car workshop in 3D. The car is built from code (no model files): a smooth painted body lofted from a side profile,
@@ -437,13 +438,38 @@ export default function Car3D({ car, progress, state, label }: Car3DProps) {
     canvas.addEventListener('pointerup', onUp);
     canvas.addEventListener('pointercancel', onUp);
 
+    // ----- the real model, shown once the car is finished (loaded only then, and only for cars that have one)
+    const realInfo = CAR_MODELS[car.id];
+    const R: { cur: PartGroup | null } = { cur: null };
+    let loadingReal = false;
+    let disposed = false;
+    let swap = 0; // 0 = the car built from parts, 1 = the real model
+    const loadReal = async () => {
+      if (!realInfo || loadingReal || R.cur) return;
+      loadingReal = true;
+      try {
+        const [{ GLTFLoader }, { MeshoptDecoder }] = await Promise.all([import('three/addons/loaders/GLTFLoader.js'), import('three/addons/libs/meshopt_decoder.module.js')]);
+        const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(`${import.meta.env.BASE_URL}models/${car.id}.glb`);
+        if (disposed) return;
+        const holder = new THREE.Group();
+        holder.add(gltf.scene);
+        if (realInfo.flip) holder.rotation.y = Math.PI;
+        holder.visible = false;
+        carRoot.add(holder);
+        R.cur = collect(holder);
+      } catch {
+        /* the built car simply stays */
+      }
+    };
+    const realAmount = (p: number) => (realInfo && R.cur && p >= 1 && shown.paint >= 0.999 ? 1 : 0);
+
     // ----- animation
     type Amounts = Record<(typeof PARTS)[number]['id'], number>;
     // The build you see catches up with the real progress at a steady pace, so reopening the app replays the assembly part by part.
     let shownP = reduce ? clamp01(live.current.progress) : 0;
     const amountsFor = (p: number) => Object.fromEntries(partStates(p).map((s) => [s.id, s.amount])) as Amounts;
     let shown = amountsFor(shownP);
-    if (import.meta.env.DEV) (window as unknown as { __c3?: unknown }).__c3 = { get shown() { return shown; }, scan, live, skip() { shownP = clamp01(live.current.progress); } };
+    if (import.meta.env.DEV) (window as unknown as { __c3?: unknown }).__c3 = { get shown() { return shown; }, scan, live, skip() { shownP = clamp01(live.current.progress); }, setTurn(a: number) { turn = a; drag = 0; } };
     let spin = 0;
     let turn = 0.55;
     let raf = 0;
@@ -467,15 +493,28 @@ export default function Car3D({ car, progress, state, label }: Car3DProps) {
       shown = amountsFor(shownP);
 
       const working = st === 'working';
-      fade(frameP, shown.frame, -0.7);
-      fade(wheelsP, shown.wheels, 1.4);
-      fade(suspP, shown.suspension, 0.5);
-      fade(engineP, shown.engine, 1.0);
-      fade(trimP, shown.paint);
+      if (realInfo && p >= 1 && shown.paint >= 0.999) void loadReal();
+      const target = realAmount(p);
+      swap = reduce ? target : swap + Math.max(-dt / 0.9, Math.min(dt / 0.9, target - swap));
+      const keep = 1 - ease(swap);
+      fade(frameP, shown.frame * keep, swap > 0 ? 0 : -0.7);
+      fade(wheelsP, shown.wheels * keep, swap > 0 ? 0 : 1.4);
+      fade(suspP, shown.suspension * keep, swap > 0 ? 0 : 0.5);
+      fade(engineP, shown.engine * keep, swap > 0 ? 0 : 1.0);
+      fade(trimP, shown.paint * keep);
+      if (R.cur) {
+        fade(R.cur, ease(swap));
+        if (swap >= 1) R.cur.group.visible = true;
+      }
+      // while the real model takes over, the built body fades out with the rest
+      const bodyKeep = swap > 0 ? keep : 1;
+      paintMat.transparent = bodyKeep < 1;
+      paintMat.opacity = bodyKeep;
+      glassMat.opacity = 0.93 * bodyKeep;
 
       // body: the scan plane moves from tail to nose
       const b = shown.body;
-      body.visible = b > 0.002;
+      body.visible = b > 0.002 && bodyKeep > 0.002;
       const cx = -L / 2 - 0.1 + ease(b) * (L + 0.2);
       if (b >= 0.999) {
         paintMat.clippingPlanes = [];
@@ -507,7 +546,7 @@ export default function Car3D({ car, progress, state, label }: Car3DProps) {
       carRoot.rotation.y = turn + drag;
       const spinSpeed = reduce ? 0 : working ? 5.5 : 0;
       spin += spinSpeed * dt;
-      for (const w of wheelMeshes) {
+      for (const w of swap < 1 ? wheelMeshes : []) {
         const sp = w.getObjectByName('spin');
         if (sp) sp.rotation.z = -spin;
       }
@@ -615,6 +654,7 @@ export default function Car3D({ car, progress, state, label }: Car3DProps) {
     start();
 
     return () => {
+      disposed = true;
       cancelAnimationFrame(raf);
       lost = true;
       ro.disconnect();
