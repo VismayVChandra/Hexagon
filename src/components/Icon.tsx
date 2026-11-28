@@ -27,6 +27,8 @@ const PATHS: Record<string, string> = {
   sun: 'M12 16a4 4 0 100-8 4 4 0 000 8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   skip: 'M5 5l10 7-10 7zM19 5v14',
   alert: 'M12 3l10 18H2zM12 10v5M12 18h.01',
+  headphones: 'M4 15v-3a8 8 0 0116 0v3M4 14h3.5v6.5H4zM16.5 14H20v6.5h-3.5z',
+  list: 'M4 7l2 2 3.5-3.5M4 15l2 2 3.5-3.5M13 8h7M13 16h7',
 };
 
 export type IconName = keyof typeof PATHS;

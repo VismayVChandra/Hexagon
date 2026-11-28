@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
-import type { ActiveSession, AppData, Exam, FocusRating, Friend, PlanTask, Scene, SessionSummary, Settings, StudySession, Subject, TimerConfig } from '../types';
+import type { ActiveSession, AppData, Exam, FocusRating, Friend, PlanTask, Scene, SessionSummary, Settings, SetupMemory, StudySession, Subject, TimerConfig } from '../types';
+import { rememberSetup } from '../lib/setup';
 import { LocalStorageAdapter, MemoryAdapter, STORAGE_KEY, StorageError, parseAppData, type StudyStorage } from '../storage/adapter';
 import { createSeed, emptyData, SUBJECT_COLORS } from '../data/seed';
 import { makeSimFriend } from '../data/friendsSim';
@@ -244,7 +245,20 @@ export function startSession(p: StartParams, now = Date.now()): Result<ActiveSes
     carId: p.scene === 'car' ? p.carId : undefined,
     tasks: makeTasks(p.tasks),
   };
-  mutateLeavingDemo((d) => ({ ...d, active, settings: { ...d.settings, lastSubjectId: p.subjectId, scene: active.scene ?? d.settings.scene } }), p.friendIds);
+  const setup: SetupMemory = { config: p.config, scene: active.scene ?? state.data.settings.scene, ...(active.scene === 'car' && active.carId ? { carId: active.carId } : {}) };
+  mutateLeavingDemo(
+    (d) => ({
+      ...d,
+      active,
+      settings: {
+        ...d.settings,
+        lastSubjectId: p.subjectId,
+        scene: active.scene ?? d.settings.scene,
+        lastSetups: rememberSetup(d.settings.lastSetups, p.subjectId, setup, d.subjects.map((s) => s.id)),
+      },
+    }),
+    p.friendIds,
+  );
   analytics.track('session_start');
   return { ok: true, value: active };
 }
@@ -510,7 +524,7 @@ export function applySyncedData(fn: (d: AppData) => AppData) {
  */
 export function clearStudyData() {
   const keep = state.data.settings;
-  commit({ ...emptyData(), settings: { ...keep, displayName: '', lastSubjectId: undefined } });
+  commit({ ...emptyData(), settings: { ...keep, displayName: '', lastSubjectId: undefined, lastSetups: {} } });
 }
 
 export function hasDemoData(d: AppData): boolean {

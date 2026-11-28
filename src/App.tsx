@@ -4,7 +4,7 @@ import { dismissSummary, heartbeat, initStore, isDemoMode, removeDemoData, resol
 import { useApplyTheme, useResolvedTheme } from './lib/theme';
 import { initCloud } from './cloud/cloud';
 import { analytics, setAnalyticsEnabled } from './cloud/analytics';
-import { showToast, useNow, useToasts } from './hooks/hooks';
+import { dismissToast, showToast, useNow, useToasts } from './hooks/hooks';
 import { computeView } from './lib/timer';
 import { formatClock, formatTimeOfDay } from './lib/time';
 import { Icon, Logo } from './components/Icon';
@@ -37,7 +37,19 @@ function ToastHost() {
     <div className="toasts" role="status" aria-live="polite">
       {toasts.map((t) => (
         <div key={t.id} className={`toast toast-${t.tone}`}>
-          {t.message}
+          <span>{t.message}</span>
+          {t.action && (
+            <button
+              type="button"
+              className="toast-action"
+              onClick={() => {
+                dismissToast(t.id);
+                t.action?.onClick();
+              }}
+            >
+              {t.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>

@@ -23,6 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   haptics: true,
   sharePresence: true,
   shareSubject: false,
+  lastSetups: {},
   installHintDismissed: false,
   analytics: true,
   analyticsNoticeDismissed: false,

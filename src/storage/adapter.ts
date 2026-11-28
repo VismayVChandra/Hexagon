@@ -3,6 +3,7 @@ import { AMBIENT_IDS, CUE_TONES } from '../types';
 import { DEFAULT_SETTINGS } from '../data/seed';
 import { migrateCarId } from '../data/cars';
 import { parseSkin } from '../lib/skins';
+import { parseSetups } from '../lib/setup';
 
 /**
  * Storage boundary. The app only talks to this interface, so swapping localStorage
@@ -64,6 +65,7 @@ function sanitizeSettings(v: unknown): Settings {
     sharePresence: typeof s.sharePresence === 'boolean' ? s.sharePresence : d.sharePresence,
     shareSubject: typeof s.shareSubject === 'boolean' ? s.shareSubject : false,
     lastSubjectId: isStr(s.lastSubjectId) ? s.lastSubjectId : undefined,
+    lastSetups: parseSetups(s.lastSetups),
     installHintDismissed: s.installHintDismissed === true,
     analytics: typeof s.analytics === 'boolean' ? s.analytics : d.analytics,
     analyticsNoticeDismissed: s.analyticsNoticeDismissed === true,

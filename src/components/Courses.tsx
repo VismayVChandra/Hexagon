@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { addSubject, saveExam, startSession, useStore, validateSubjectName } from '../store/store';
-import { haptic, primeAudio, showToast } from '../hooks/hooks';
+import { addSubject, saveExam, useStore, validateSubjectName } from '../store/store';
+import { showToast } from '../hooks/hooks';
+import { useQuickStart } from '../hooks/quickStart';
 import { dayKey, daysBetween, formatDuration, isValidDayKey, relativeDays } from '../lib/time';
 import { sessionDay } from '../lib/stats';
 import type { Exam, Subject } from '../types';
@@ -209,7 +209,7 @@ export function examBadge(date: string, today: string): string {
 /** Home: "Start studying". Every subject is a big one-tap tile with its exam countdown. */
 export function SubjectTiles({ today }: { today: string }) {
   const { data } = useStore();
-  const navigate = useNavigate();
+  const study = useQuickStart();
   const [open, setOpen] = useState(false);
   const mine = data.subjects.filter((s) => !s.demo);
   const next = nextExamBySubject(data.exams, today);
@@ -219,14 +219,6 @@ export function SubjectTiles({ today }: { today: string }) {
     for (const s of data.sessions) if (sessionDay(s) === today) out.set(s.subjectId, (out.get(s.subjectId) ?? 0) + s.studiedMs);
     return out;
   }, [data.sessions, today]);
-
-  function study(subject: Subject) {
-    primeAudio();
-    haptic('press', data.settings.haptics);
-    const r = startSession({ subjectId: subject.id, topic: '', goal: '', config: { mode: 'stopwatch' }, friendIds: [] });
-    if (r.ok) navigate('/session');
-    else showToast(r.error, 'error');
-  }
 
   if (mine.length === 0) {
     return (
@@ -289,20 +281,12 @@ export function SubjectTiles({ today }: { today: string }) {
 /** Exams page: every subject as a one-tap "start studying" button, with the exam countdown. */
 export function MySubjectsCard() {
   const { data } = useStore();
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const today = dayKey(Date.now());
   const mine = data.subjects.filter((s) => !s.demo);
   const next = nextExamBySubject(data.exams, today);
   const busy = !!data.active;
-
-  function study(subject: Subject) {
-    primeAudio();
-    haptic('press', data.settings.haptics);
-    const r = startSession({ subjectId: subject.id, topic: '', goal: '', config: { mode: 'stopwatch' }, friendIds: [] });
-    if (r.ok) navigate('/session');
-    else showToast(r.error, 'error');
-  }
+  const study = useQuickStart();
 
   return (
     <section className="card" aria-labelledby="mysub-h">

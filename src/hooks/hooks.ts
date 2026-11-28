@@ -185,19 +185,23 @@ export interface Toast {
   id: number;
   message: string;
   tone: 'info' | 'success' | 'error';
+  /** An optional button on the toast, e.g. "Change". The toast closes when it is pressed. */
+  action?: { label: string; onClick: () => void };
 }
 let toasts: Toast[] = [];
 let toastId = 0;
 const toastListeners = new Set<() => void>();
 
-export function showToast(message: string, tone: Toast['tone'] = 'success') {
-  const t = { id: ++toastId, message, tone };
+export function dismissToast(id: number) {
+  toasts = toasts.filter((x) => x.id !== id);
+  toastListeners.forEach((l) => l());
+}
+
+export function showToast(message: string, tone: Toast['tone'] = 'success', opts?: { action?: Toast['action']; ms?: number }) {
+  const t: Toast = { id: ++toastId, message, tone, action: opts?.action };
   toasts = [...toasts, t];
   toastListeners.forEach((l) => l());
-  window.setTimeout(() => {
-    toasts = toasts.filter((x) => x.id !== t.id);
-    toastListeners.forEach((l) => l());
-  }, 4200);
+  window.setTimeout(() => dismissToast(t.id), opts?.ms ?? 4200);
 }
 
 export function useToasts(): Toast[] {

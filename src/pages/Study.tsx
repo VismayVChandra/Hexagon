@@ -6,7 +6,10 @@ import { ROOMS, friendPresence } from '../data/friendsSim';
 import { useFriendRows } from '../cloud/useFriendRows';
 import { haptic, primeAudio, useNow } from '../hooks/hooks';
 import { formatDuration, MIN } from '../lib/time';
-import type { PomodoroConfig, Scene, TimerMode } from '../types';
+import type { PomodoroConfig, Scene, TimerConfig, TimerMode } from '../types';
+import { useSetupFor } from '../hooks/quickStart';
+import { SCENE_LABEL, describeConfig } from '../lib/setup';
+import Home from './Home';
 import { CARS, LETTERS, TIERS, brandLetter, buildMs, buildTimeLabel, carById, carsInTier, carsWithLetter, type Tier } from '../data/cars';
 import { CarArt } from '../components/CarArt';
 import { CarPhoto } from '../components/CarPhoto';
@@ -47,19 +50,25 @@ export default function Study() {
 
   const room = ROOMS.find((r) => r.id === params.get('room')) ?? null;
 
+  const setupOf = useSetupFor();
   const [subjectId, setSubjectId] = useState(() => {
+    const wanted = params.get('subject');
+    if (wanted && data.subjects.some((s) => s.id === wanted)) return wanted;
     const last = data.settings.lastSubjectId;
     return data.subjects.some((s) => s.id === last) ? (last as string) : (data.subjects[0]?.id ?? '');
   });
+  // Each subject remembers how it was last studied, so the sheet opens ready to go.
+  const [initial] = useState(() => setupOf(subjectId));
+  const [customising, setCustomising] = useState(() => data.subjects.length === 0 || room != null);
   const [topic, setTopic] = useState('');
   const [goal, setGoal] = useState('');
-  const [mode, setMode] = useState<TimerMode>(room?.mode ?? 'stopwatch');
-  const [countdown, setCountdown] = useState('45');
+  const [mode, setMode] = useState<TimerMode>(room?.mode ?? initial.config.mode);
+  const [countdown, setCountdown] = useState(String(initial.config.targetMin ?? 45));
   const [pomo, setPomo] = useState({
-    focus: String(room?.focusMin ?? data.settings.pomodoro.focusMin),
-    brk: String(room?.breakMin ?? data.settings.pomodoro.breakMin),
-    long: String(data.settings.pomodoro.longBreakMin),
-    cycles: String(data.settings.pomodoro.cyclesBeforeLong),
+    focus: String(room?.focusMin ?? initial.config.pomodoro?.focusMin ?? data.settings.pomodoro.focusMin),
+    brk: String(room?.breakMin ?? initial.config.pomodoro?.breakMin ?? data.settings.pomodoro.breakMin),
+    long: String(initial.config.pomodoro?.longBreakMin ?? data.settings.pomodoro.longBreakMin),
+    cycles: String(initial.config.pomodoro?.cyclesBeforeLong ?? data.settings.pomodoro.cyclesBeforeLong),
   });
   const [friendIds, setFriendIds] = useState<string[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -70,14 +79,15 @@ export default function Study() {
   const allCollected = todo.length === 0;
   // Offer the car you've made the most progress on first, otherwise the cheapest one left.
   const bestIn = (cars: typeof CARS) => [...cars].filter((c) => !collected.has(c.id)).sort((a, b) => (data.builds[b.id] ?? 0) / buildMs(b) - (data.builds[a.id] ?? 0) / buildMs(a) || a.tier - b.tier)[0];
-  const [carId, setCarId] = useState<string | undefined>(() => bestIn(CARS)?.id);
-  const [tier, setTier] = useState<number>(() => carById(bestIn(CARS)?.id)?.tier ?? 1);
+  const startCarId = initial.scene === 'car' && initial.carId ? initial.carId : bestIn(CARS)?.id;
+  const [carId, setCarId] = useState<string | undefined>(() => startCarId);
+  const [tier, setTier] = useState<number>(() => carById(startCarId)?.tier ?? 1);
   const [carView, setCarView] = useState<'tier' | 'az'>('tier');
   const [letter, setLetter] = useState<string>(() => {
-    const c = carById(bestIn(CARS)?.id);
+    const c = carById(startCarId);
     return c ? brandLetter(c) : (LETTERS[0] ?? 'A');
   });
-  const [scene, setScene] = useState<Scene>(() => (data.settings.scene === 'car' && allCollected ? 'honeycomb' : data.settings.scene));
+  const [scene, setScene] = useState<Scene>(() => (initial.scene === 'car' && allCollected ? 'honeycomb' : initial.scene));
   const [addingSubject, setAddingSubject] = useState(data.subjects.length === 0);
   const [newSubject, setNewSubject] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -89,6 +99,29 @@ export default function Study() {
   if (data.active) return <Navigate to="/session" replace />;
 
   const locked = room != null;
+
+  /** Switch to a subject and bring back the timer and scene it was last studied with. */
+  function pickSubject(id: string) {
+    setSubjectId(id);
+    setErrors((e) => omit(e, 'subject'));
+    if (locked) return;
+    const s = setupOf(id);
+    setMode(s.config.mode);
+    setCountdown(String(s.config.targetMin ?? 45));
+    setPomo({
+      focus: String(s.config.pomodoro?.focusMin ?? data.settings.pomodoro.focusMin),
+      brk: String(s.config.pomodoro?.breakMin ?? data.settings.pomodoro.breakMin),
+      long: String(s.config.pomodoro?.longBreakMin ?? data.settings.pomodoro.longBreakMin),
+      cycles: String(s.config.pomodoro?.cyclesBeforeLong ?? data.settings.pomodoro.cyclesBeforeLong),
+    });
+    setScene(s.scene === 'car' && allCollected ? 'honeycomb' : s.scene);
+    const remembered = s.scene === 'car' ? carById(s.carId) : undefined;
+    if (remembered) {
+      setCarId(remembered.id);
+      setTier(remembered.tier);
+      setLetter(brandLetter(remembered));
+    }
+  }
 
   function createSubject() {
     const err = validateSubjectName(newSubject, data.subjects);
@@ -105,8 +138,8 @@ export default function Study() {
     }
   }
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
+  function submit(e?: React.FormEvent) {
+    e?.preventDefault();
     const errs: Record<string, string> = {};
     if (!subjectId) errs.subject = 'Choose a subject, or add a new one.';
     if (topic.length > 80) errs.topic = 'Keep the topic under 80 characters.';
@@ -133,6 +166,8 @@ export default function Study() {
 
     setErrors(errs);
     if (Object.keys(errs).length) {
+      // Something typed in Customise isn't valid: show it there rather than failing silently on the sheet.
+      setCustomising(true);
       requestAnimationFrame(() => (formRef.current?.querySelector('[aria-invalid="true"]') as HTMLElement | null)?.focus());
       return;
     }
@@ -179,10 +214,82 @@ export default function Study() {
   const toggleFriend = (id: string) => setFriendIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const roomMates = room ? rows.filter((r) => r.state === 'studying' && r.roomId === room.id) : [];
 
+  const chosen = data.subjects.find((s) => s.id === subjectId);
+
+  if (!customising) {
+    const car = scene === 'car' ? carById(carId) : undefined;
+    const config = mode === 'countdown' ? { mode, targetMin: toNum(countdown) } : mode === 'pomodoro' ? { mode, pomodoro: { focusMin: toNum(pomo.focus), breakMin: toNum(pomo.brk), longBreakMin: toNum(pomo.long), cyclesBeforeLong: toNum(pomo.cycles) } } : { mode };
+    const sound = AMBIENT_SOUNDS.find((a) => a.id === data.settings.ambient);
+    const summary = [describeConfig(config as TimerConfig)];
+    const second = [SCENE_LABEL[scene] + (car ? ` · ${car.brand} ${car.model}` : ''), data.settings.ambient === 'off' ? 'No sound' : (sound?.label ?? 'Sound'), data.settings.sharePresence ? 'Friends see you’re studying' : 'Private'];
+    return (
+      <>
+        <div className="qs-behind" aria-hidden="true" inert>
+          <Home />
+        </div>
+        <div className="qs-scrim" onClick={() => navigate('/')} />
+        <section
+          className="qs-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="qs-h"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') navigate('/');
+          }}
+        >
+          <div className="qs-grabber" aria-hidden="true" />
+          <div className="qs-head">
+            <h1 id="qs-h" className="t-title">
+              Ready when you are
+            </h1>
+            <button type="button" className="icon-btn" aria-label="Close" onClick={() => navigate('/')}>
+              <Icon name="x" />
+            </button>
+          </div>
+          <div role="radiogroup" aria-label="Subject" className="qs-subjects">
+            {data.subjects.map((s) => (
+              <button key={s.id} type="button" role="radio" aria-checked={subjectId === s.id} className={`chip${subjectId === s.id ? ' is-on' : ''}`} onClick={() => pickSubject(s.id)}>
+                <SubjectDot subject={s} />
+                {s.name}
+              </button>
+            ))}
+          </div>
+          <div className="qs-summary">
+            <div className="qs-summary-text">
+              <strong>{summary[0]}</strong>
+              <span className="muted small">{second.join(' · ')}</span>
+            </div>
+            <button type="button" className="link-btn" onClick={() => setCustomising(true)}>
+              Customise
+            </button>
+          </div>
+          {errors.form && (
+            <p className="field-error" role="alert">
+              {errors.form}
+            </p>
+          )}
+          <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => submit()} autoFocus disabled={!chosen}>
+            <Icon name="play" size={18} /> Start {chosen?.name ?? ''}
+          </button>
+          <p className="muted small qs-note">Remembers your last setup for each subject.</p>
+        </section>
+      </>
+    );
+  }
+
   return (
     <div className="page">
-      <h1 className="page-title">Start studying</h1>
-      <p className="page-sub">Pick a subject and begin. Everything else is optional.</p>
+      <header className="study-head">
+        {data.subjects.length > 0 && !room && (
+          <button type="button" className="icon-btn" aria-label="Back to quick start" onClick={() => setCustomising(false)}>
+            <Icon name="chevron" className="flip-x" />
+          </button>
+        )}
+        <div>
+          <h1 className="page-title">{chosen ? `${chosen.name} session` : 'Start studying'}</h1>
+          <p className="page-sub">Pick a subject and begin. Everything else is optional.</p>
+        </div>
+      </header>
 
       <form ref={formRef} onSubmit={submit} noValidate className="stack">
         {room && (
@@ -215,10 +322,7 @@ export default function Study() {
                   role="radio"
                   aria-checked={subjectId === s.id}
                   className={`chip${subjectId === s.id ? ' is-on' : ''}`}
-                  onClick={() => {
-                    setSubjectId(s.id);
-                    setErrors((e) => omit(e, 'subject'));
-                  }}
+                  onClick={() => pickSubject(s.id)}
                 >
                   <SubjectDot subject={s} />
                   {s.name}
@@ -592,7 +696,7 @@ export default function Study() {
 
         <div className="sticky-action">
           <button type="submit" className="btn btn-primary btn-lg btn-block">
-            <Icon name="play" size={18} /> Begin session
+            <Icon name="play" size={18} /> Start focus
             {mode === 'countdown' && Number.isInteger(toNum(countdown)) && toNum(countdown) > 0 ? ` · ${formatDuration(toNum(countdown) * MIN)}` : ''}
           </button>
         </div>

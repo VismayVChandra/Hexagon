@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { discardSession, extendActive, finishSession, getState, pauseActive, resumeActive, skipActiveBreak, updateSettings, useStore } from '../store/store';
 import { haptic, showToast, useMediaQuery, useNow, useWakeLock, wakeLockSupported } from '../hooks/hooks';
-import { computeView, modeLabel } from '../lib/timer';
+import { computeView } from '../lib/timer';
 import { dayKey, formatClock, formatDuration, spokenDuration, MIN } from '../lib/time';
 import { todayMs } from '../lib/stats';
 import { ROOMS, friendPresence } from '../data/friendsSim';
 import { useFriendRows } from '../cloud/useFriendRows';
 import { Bar, DemoBadge, FriendAvatar, ProgressRing, StateBadge, SubjectDot, Toggle } from '../components/bits';
 import { Icon } from '../components/Icon';
+import { Bee } from '../components/Bee';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { HoneycombScene } from '../components/CombView';
 import { CarScene } from '../components/CarArt';
@@ -35,6 +36,7 @@ export default function Session() {
   const now = useNow(true, 250);
   const [finishing, setFinishing] = useState(false);
   const [discarding, setDiscarding] = useState(false);
+  const [sheet, setSheet] = useState<null | 'plan' | 'options'>(null);
   const [notes, setNotes] = useState('');
   const [focus, setFocus] = useState<FocusRating | undefined>();
   // Opening the finish sheet pauses the clock; if it is dismissed rather than saved, pick up where the student was.
@@ -105,14 +107,6 @@ export default function Session() {
     goalRange = { fromMs: idx * focus, toMs: (idx + 1) * focus };
   }
   const cellsNow = Math.floor(view.studiedMs / CELL_MS);
-  const honeyCaption =
-    sceneState === 'done'
-      ? 'All done. Look at that comb!'
-      : sceneState === 'break'
-        ? 'Your bee is resting. Break time doesn’t make honey.'
-        : sceneState === 'paused'
-          ? 'Paused. Your bee is waiting for you.'
-          : `${cellsNow} honey ${cellsNow === 1 ? 'cell' : 'cells'} · next cell in ${formatClock(CELL_MS - (view.studiedMs % CELL_MS))}`;
 
   function openFinish() {
     haptic('tap', data.settings.haptics);
@@ -162,73 +156,189 @@ export default function Session() {
   const todayTotal = todayMs(data.sessions, now) + (dayKey(active.startedAt) === dayKey(now) ? view.studiedMs : 0);
   const note = encouragement(view.studiedMs, todayTotal, goalMs, isBreak);
 
+  const paused = !view.running && !view.done && !isBreak;
+  const cycles = mode === 'pomodoro' ? (active.config.pomodoro?.cyclesBeforeLong ?? 0) : 0;
+  const round = cycles > 0 ? ((Math.max(1, view.block) - 1) % cycles) + 1 : 0;
+  const tasks = active.tasks ?? [];
+  const tasksDone = tasks.filter((t) => t.done).length;
+  const cellsLine =
+    scene === 'honeycomb' ? `+${cellsNow} ${cellsNow === 1 ? 'cell' : 'cells'} so far` : scene === 'car' && car ? `${car.brand} ${car.model} · ${Math.min(100, Math.floor(carProgress * 100))}% built` : '';
+  const timerSub = [view.done ? 'Time’s up' : mode === 'stopwatch' ? 'studied' : 'left in focus', cellsLine].filter(Boolean).join(' · ');
+  const nextFocusMin = active.config.pomodoro?.focusMin;
+
+  const friendsSection =
+    companions.length > 0 || room || liveStudying.length > 0 ? (
+      <section className="sheet-block" aria-labelledby="with-h">
+        <div className="card-head">
+          <h3 id="with-h" className="card-title">
+            {live ? 'Friends studying now' : 'Studying alongside'}
+          </h3>
+          {!live && <DemoBadge>Simulated</DemoBadge>}
+        </div>
+        {live ? (
+          liveStudying.length === 0 ? (
+            <p className="muted small">None of your friends are studying right now{room ? `, but you’re in ${room.name}` : ''}.</p>
+          ) : (
+            <ul className="companions">
+              {liveStudying.map((r) => (
+                <li key={r.removeId}>
+                  <FriendAvatar friend={r} state={r.state} size={36} />
+                  <span className="pick-name">{r.name}</span>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : room && companions.length === 0 ? (
+          <p className="muted small">
+            You’re in <strong>{room.name}</strong>. Friends in this demo room are simulated on this device.
+          </p>
+        ) : (
+          <ul className="companions">
+            {companions.map((f) => {
+              const p = friendPresence(f, now);
+              return (
+                <li key={f.id}>
+                  <FriendAvatar friend={f} state={p.state} size={36} />
+                  <span className="pick-name">{f.name}</span>
+                  <StateBadge state={p.state} />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    ) : null;
+
   return (
     <div className="page session">
-      <div className="session-top">
-        <Link to="/" className="link-btn session-back">
-          <Icon name="home" size={16} /> Home — timer keeps running
-        </Link>
-      </div>
+      <div className={`fm${isBreak ? ' is-break' : ''}${paused ? ' is-paused' : ''}`}>
+        <div className="fm-top">
+          <Link to="/" className="fm-icon" aria-label="Home. The timer keeps running.">
+            <Icon name="home" size={20} />
+          </Link>
+          <span className="fm-pill">
+            <SubjectDot subject={subject} size={12} />
+            <span className="fm-pill-text">
+              {subject?.name ?? 'Study session'}
+              {active.topic ? ` · ${active.topic}` : ''}
+            </span>
+          </span>
+          {paused && <span className="fm-badge">Paused</span>}
+          <button type="button" className="fm-icon" aria-label="Session options: sound, friends, screen" onClick={() => setSheet('options')}>
+            <Icon name="headphones" size={20} />
+          </button>
+        </div>
 
-      <div className="session-head">
-        <p className="eyebrow">
-          {modeLabel(mode)}
-          {room ? ` · ${room.name}` : ''}
-        </p>
-        <h1 className="session-subject">
-          <SubjectDot subject={subject} size={14} /> {subject?.name ?? 'Study session'}
-        </h1>
-        {(active.topic || active.goal) && (
-          <p className="muted session-topic">
-            {active.topic}
-            {active.topic && active.goal ? ' — ' : ''}
-            {active.goal && <em>{active.goal}</em>}
-          </p>
-        )}
-      </div>
-
-      <div className={`timer-stage${isBreak ? ' is-break' : ''}${!view.running && !view.done ? ' is-paused' : ''}${scene !== 'minimal' ? ' has-scene' : ''}`}>
-        {scene === 'minimal' ? (
-          <div className={`ring-timer${mode === 'stopwatch' ? ' ring-wrap' : ''}`}>
-            <ProgressRing value={ringProgress} size={compact ? 224 : 280} stroke={12} label={`${stateLabel}. ${formatClock(view.displayMs)} ${mode === 'stopwatch' ? 'elapsed' : 'remaining'}`}>
-              <div role="timer" aria-label="Session timer" className="timer-readout">
-                <span className="timer-digits">{formatClock(view.displayMs)}</span>
-                <span className="timer-state">
-                  {isBreak ? <Icon name="coffee" size={16} /> : null}
-                  {stateLabel}
-                </span>
-              </div>
-            </ProgressRing>
+        {cycles > 0 && (
+          <div className="fm-rounds" role="img" aria-label={`${isBreak ? 'Break after' : 'Round'} ${round} of ${cycles}`}>
+            {Array.from({ length: cycles }, (_, i) => (
+              <span key={i} className={i < round ? 'on' : ''} />
+            ))}
           </div>
-        ) : (
-          <>
-            <div className="scene-wrap">
-              {scene === 'car' && car ? <CarScene car={car} progress={carProgress} state={sceneState} /> : <HoneycombScene studiedMs={view.studiedMs} state={sceneState} goal={goalRange} />}
-            </div>
-            {scene === 'honeycomb' && <p className="scene-caption">{honeyCaption}</p>}
-            <div role="timer" aria-label="Session timer" className="timer-readout timer-readout-inline">
-              <span className="timer-digits">{formatClock(view.displayMs)}</span>
-              <span className="timer-state">
-                {isBreak ? <Icon name="coffee" size={16} /> : null}
-                {stateLabel}
-              </span>
-            </div>
-          </>
-        )}
-        <p className="sr-only" role="status">
-          {spokenDuration(view.studiedMs)} studied. {stateLabel}.
-        </p>
-
-        {isBreak ? (
-          <p className="timer-note">Breathe, stretch, have some water. Break time isn’t counted as study time.</p>
-        ) : view.done ? (
-          <p className="timer-note">You studied the full {formatDuration(view.studiedMs)}. Finish up, or add a little more time.</p>
-        ) : mode === 'pomodoro' ? (
-          <p className="timer-note">{view.nextBreakLong ? 'A long break follows this block.' : 'A short break follows this block.'}</p>
-        ) : (
-          <p className="timer-note">{!view.running ? 'Paused — time isn’t counting.' : mode === 'countdown' ? 'Counting down your study time.' : 'Counting up. Stop whenever you’re ready.'}</p>
         )}
 
+        <div className="fm-stage">
+          {isBreak ? (
+            <>
+              <div className="fm-break-pip">
+                <div className="pip-float">
+                  <Bee pose="sleepy" size={150} />
+                </div>
+              </div>
+              <div role="timer" aria-label="Break timer" className="fm-timer">
+                <span className="fm-digits fm-digits-sm">{formatClock(view.displayMs)}</span>
+              </div>
+              <p className="fm-break-title">Stretch, sip water.</p>
+              <p className="fm-sub">
+                Next: {subject?.name ?? 'Study'} focus{nextFocusMin ? ` · ${nextFocusMin} min` : ''}
+              </p>
+            </>
+          ) : (
+            <>
+              {scene === 'minimal' ? (
+                <div className="ring-timer">
+                  <ProgressRing value={ringProgress} size={compact ? 224 : 280} stroke={12} label={`${stateLabel}. ${formatClock(view.displayMs)} ${mode === 'stopwatch' ? 'elapsed' : 'remaining'}`}>
+                    <div role="timer" aria-label="Session timer" className="fm-timer">
+                      <span className="fm-digits fm-digits-sm">{formatClock(view.displayMs)}</span>
+                      <span className="fm-sub">{timerSub}</span>
+                    </div>
+                  </ProgressRing>
+                </div>
+              ) : (
+                <>
+                  <div className="scene-wrap fm-scene">{scene === 'car' && car ? <CarScene car={car} progress={carProgress} state={sceneState} /> : <HoneycombScene studiedMs={view.studiedMs} state={sceneState} goal={goalRange} />}</div>
+                  <div role="timer" aria-label="Session timer" className="fm-timer">
+                    <span className="fm-digits">{formatClock(view.displayMs)}</span>
+                    <span className="fm-sub">{timerSub}</span>
+                  </div>
+                </>
+              )}
+              {paused && <p className="fm-note">Take your time. Pausing never costs you cells or your streak.</p>}
+              {view.done && <p className="fm-note">You studied the full {formatDuration(view.studiedMs)}. Finish up, or add a little more time.</p>}
+            </>
+          )}
+          <p className="sr-only" role="status">
+            {spokenDuration(view.studiedMs)} studied. {stateLabel}.
+          </p>
+        </div>
+
+        <div className="fm-controls">
+          {view.done ? (
+            <>
+              <div className="fm-row">
+                <button type="button" className="fm-btn" onClick={() => extendActive(5)}>
+                  +5 min
+                </button>
+                <button type="button" className="fm-btn" onClick={() => extendActive(10)}>
+                  +10 min
+                </button>
+              </div>
+              <button type="button" className="fm-btn fm-btn-honey" onClick={openFinish}>
+                <Icon name="flag" size={18} /> Finish
+              </button>
+            </>
+          ) : isBreak ? (
+            <>
+              <button type="button" className="fm-btn fm-btn-light" onClick={() => skipActiveBreak()}>
+                <Icon name="skip" size={18} /> Skip break
+              </button>
+              <button type="button" className="fm-btn" onClick={openFinish}>
+                Finish session
+              </button>
+            </>
+          ) : paused ? (
+            <>
+              <button type="button" className="fm-btn fm-btn-honey" onClick={toggleRun}>
+                <Icon name="play" size={18} /> Resume
+              </button>
+              <button type="button" className="fm-btn" onClick={openFinish}>
+                Finish session
+              </button>
+            </>
+          ) : (
+            <div className="fm-main-row">
+              <button type="button" className="fm-ghost fm-ghost-start" onClick={openFinish}>
+                Finish
+              </button>
+              <button type="button" className="fm-pause" aria-label="Pause" onClick={toggleRun}>
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <rect x="6" y="5" width="4.2" height="14" rx="1.3" />
+                  <rect x="13.8" y="5" width="4.2" height="14" rx="1.3" />
+                </svg>
+              </button>
+              <button type="button" className="fm-ghost fm-ghost-end" onClick={() => setSheet('plan')} aria-label={tasks.length ? `Plan: ${tasksDone} of ${tasks.length} done` : 'Add a plan'}>
+                <Icon name="list" size={18} /> {tasks.length ? `${tasksDone}/${tasks.length}` : 'Plan'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Dialog open={sheet === 'plan'} onClose={() => setSheet(null)} title="Plan">
+        <PlanCard tasks={tasks} />
+      </Dialog>
+
+      <Dialog open={sheet === 'options'} onClose={() => setSheet(null)} title="Session options">
         <dl className="session-stats">
           <div>
             <dt>Studied</dt>
@@ -241,7 +351,6 @@ export default function Session() {
             </div>
           )}
         </dl>
-
         <div className="today-progress">
           <div className="subject-bars-top small">
             <span className="muted">Today including this session</span>
@@ -252,106 +361,38 @@ export default function Session() {
           <Bar value={todayTotal / goalMs} color={todayTotal >= goalMs ? 'var(--honey)' : 'var(--primary)'} label="Today's goal progress" />
           <p className="encourage">{note}</p>
         </div>
-
-        <div className="controls">
-          {view.done ? (
-            <>
-              <button type="button" className="btn btn-secondary btn-lg" onClick={() => extendActive(5)}>
-                +5 min
-              </button>
-              <button type="button" className="btn btn-secondary btn-lg" onClick={() => extendActive(10)}>
-                +10 min
-              </button>
-            </>
-          ) : (
-            <button type="button" className="btn btn-primary btn-lg ctl-main" onClick={toggleRun}>
-              <Icon name={view.running ? 'pause' : 'play'} size={20} />
-              {view.running ? 'Pause' : 'Resume'}
-            </button>
-          )}
-          {isBreak && (
-            <button type="button" className="btn btn-secondary btn-lg" onClick={() => skipActiveBreak()}>
-              <Icon name="skip" size={18} /> Skip break
-            </button>
-          )}
-          <button type="button" className={`btn btn-lg ${view.done ? 'btn-primary' : 'btn-secondary'}`} onClick={openFinish}>
-            <Icon name="flag" size={18} /> Finish
-          </button>
-        </div>
-        <button type="button" className="link-btn danger-link" onClick={() => setDiscarding(true)}>
+        <SoundCard />
+        {friendsSection}
+        <section className="sheet-block">
+          <Toggle
+            id="keep-awake"
+            checked={data.settings.keepAwake}
+            onChange={(v) => updateSettings({ keepAwake: v })}
+            disabled={!wakeLockSupported}
+            label="Keep screen on"
+            description={
+              !wakeLockSupported
+                ? 'Not supported by this browser. The timer stays accurate even if your screen locks.'
+                : wake === 'on'
+                  ? 'Your screen won’t dim while the timer runs.'
+                  : 'Off, or waiting for the timer to run. The timer stays accurate either way.'
+            }
+          />
+          <p className="hint lock-note">
+            <Icon name="lock" size={14} /> {data.settings.sharePresence ? 'Friends can see that you’re studying.' : 'Private. Nobody can see this session.'}
+          </p>
+        </section>
+        <button
+          type="button"
+          className="btn btn-quiet btn-danger-text"
+          onClick={() => {
+            setSheet(null);
+            setDiscarding(true);
+          }}
+        >
           Discard session
         </button>
-      </div>
-
-      {(companions.length > 0 || room || liveStudying.length > 0) && (
-        <section className="card" aria-labelledby="with-h">
-          <div className="card-head">
-            <h2 id="with-h" className="card-title">
-              {live ? 'Friends studying now' : 'Studying alongside'}
-            </h2>
-            {!live && <DemoBadge>Simulated</DemoBadge>}
-          </div>
-          {live ? (
-            liveStudying.length === 0 ? (
-              <p className="muted small">None of your friends are studying right now{room ? `, but you’re in ${room.name}` : ''}.</p>
-            ) : (
-              <ul className="companions">
-                {liveStudying.map((r) => (
-                  <li key={r.removeId}>
-                    <FriendAvatar friend={r} state={r.state} size={36} />
-                    <span className="pick-name">{r.name}</span>
-                    <span className="muted small">
-                      {r.subject ? `${r.subject} · ` : ''}
-                      {formatDuration(r.sessionMs)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )
-          ) : room && companions.length === 0 ? (
-            <p className="muted small">You’re in <strong>{room.name}</strong>. Friends in this demo room are simulated on this device.</p>
-          ) : (
-            <ul className="companions">
-              {companions.map((f) => {
-                const p = friendPresence(f, now);
-                return (
-                  <li key={f.id}>
-                    <FriendAvatar friend={f} state={p.state} size={36} />
-                    <span className="pick-name">{f.name}</span>
-                    <span className="muted small">{p.state === 'studying' ? formatDuration(p.sessionMs) : ''}</span>
-                    <StateBadge state={p.state} />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-      )}
-
-      <PlanCard tasks={active.tasks ?? []} />
-
-      <SoundCard />
-
-      <section className="card">
-        <h2 className="card-title">This session</h2>
-        <Toggle
-          id="keep-awake"
-          checked={data.settings.keepAwake}
-          onChange={(v) => updateSettings({ keepAwake: v })}
-          disabled={!wakeLockSupported}
-          label="Keep screen on"
-          description={
-            !wakeLockSupported
-              ? 'Not supported by this browser. The timer stays accurate even if your screen locks.'
-              : wake === 'on'
-                ? 'Your screen won’t dim while the timer runs.'
-                : 'Off, or waiting for the timer to run. The timer stays accurate either way.'
-          }
-        />
-        <p className="hint lock-note">
-          <Icon name="lock" size={14} /> {data.settings.sharePresence ? `Visible to friends in demo rooms${data.settings.shareSubject ? ', with your subject' : ''}.` : 'Private. Nobody can see this session.'}
-        </p>
-      </section>
+      </Dialog>
 
       <Dialog open={finishing} onClose={closeFinish} title="Finish session">
         <div className="finish-summary">

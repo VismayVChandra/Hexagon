@@ -44,6 +44,14 @@ export interface TimerConfig {
   pomodoro?: PomodoroConfig;
 }
 
+/** How a subject was last studied, so the next session can start the same way in one tap. */
+export interface SetupMemory {
+  config: TimerConfig;
+  scene: Scene;
+  /** Only for the car scene. */
+  carId?: string;
+}
+
 export interface Subject {
   id: string;
   name: string;
@@ -160,6 +168,8 @@ export interface Settings {
   /** Privacy: also show the subject. Off by default. */
   shareSubject: boolean;
   lastSubjectId?: string;
+  /** The timer and scene last used for each subject (by subject id). Stays on this device. */
+  lastSetups: Record<string, SetupMemory>;
   installHintDismissed: boolean;
   /** Privacy: send anonymous usage counts (opens, sessions started) so the app's owner can see what is used. On by default, with a note on Home. */
   analytics: boolean;
