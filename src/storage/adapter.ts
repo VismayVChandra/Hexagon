@@ -2,6 +2,7 @@ import type { ActiveSession, AppData, Exam, FocusRating, Friend, PlanTask, Setti
 import { AMBIENT_IDS, CUE_TONES } from '../types';
 import { DEFAULT_SETTINGS } from '../data/seed';
 import { migrateCarId } from '../data/cars';
+import { parseSkin } from '../lib/skins';
 
 /**
  * Storage boundary. The app only talks to this interface, so swapping localStorage
@@ -49,6 +50,7 @@ function sanitizeSettings(v: unknown): Settings {
       cyclesBeforeLong: Math.round(clamp(p.cyclesBeforeLong, 1, 10, d.pomodoro.cyclesBeforeLong)),
     },
     theme: s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system',
+    skin: parseSkin(s.skin),
     scene: s.scene === 'car' || s.scene === 'minimal' ? s.scene : 'honeycomb',
     keepAwake: typeof s.keepAwake === 'boolean' ? s.keepAwake : d.keepAwake,
     sound: typeof s.sound === 'boolean' ? s.sound : d.sound,

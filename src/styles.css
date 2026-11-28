@@ -3672,3 +3672,367 @@ svg.comb-hive {
     transition: none;
   }
 }
+
+/* =========================================================
+   SKIN: HONEY POP   (<html data-skin="pop">, works with data-theme light and dark)
+   Chunky ink outlines, hard offset shadows, Bricolage Grotesque, honey as the action colour.
+   Later skins are just another block like this one.
+   ========================================================= */
+:root[data-skin='pop'] {
+  --font-display: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', 'Figtree Variable', system-ui, sans-serif;
+  --bg: #fff6df;
+  --band: #e9b44c; /* the curved honey band behind the header */
+  --surface: #ffffff;
+  --surface-2: #fcebc2;
+  --sunken: #f3dda6;
+  --ink: #1e2b26; /* 13.6:1 on bg */
+  --ink-2: #33403a;
+  --muted: #55605a; /* 6.3:1 */
+  --line: #ead7a8;
+  --line-strong: #1e2b26;
+  --edge: #1e2b26; /* outlines and hard shadows */
+  --primary: #e9b44c; /* honey is the action colour */
+  --primary-press: #d9a02f;
+  --on-primary: #1e2b26; /* 7.8:1 */
+  --primary-soft: #fce3a0;
+  --primary-ink: #1e2b26;
+  --honey: #e9b44c;
+  --honey-soft: #fce3a0;
+  --honey-ink: #6b4700;
+  --on-honey: #1e2b26;
+  --focus-ring: #3b5bdb;
+  --cell-empty: #f6e6be;
+  --cell-line: #1e2b26;
+  --fm-bg: #1e2b26;
+  --fm-bg-2: #2b3d36;
+  --s1: #7fd1b9;
+  --s2: #f7a974;
+  --s3: #9db8f5;
+  --s4: #e3a9d6;
+  --s5: #b9d77a;
+  --shadow-1: 0 3px 0 var(--edge);
+  --shadow-2: 0 5px 0 var(--edge);
+  --shadow-3: 0 -4px 0 var(--edge);
+  --shadow: 0 3px 0 var(--edge);
+  --shadow-lift: 0 5px 0 var(--edge);
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --info-bg: #fcebc2;
+}
+:root[data-skin='pop'][data-theme='dark'] {
+  --bg: #17140d;
+  --band: #3a2f17;
+  --surface: #241f15;
+  --surface-2: #2e271a;
+  --sunken: #120f09;
+  --ink: #fff6df; /* 17:1 */
+  --ink-2: #e8dcc0;
+  --muted: #bfb49b; /* 8.5:1 */
+  --line: #3a3222;
+  --line-strong: #000000;
+  --edge: #000000;
+  --primary: #f0c05e;
+  --primary-press: #f5cf7d;
+  --on-primary: #1e1a0e; /* 10.3:1 */
+  --primary-soft: #3a2f17;
+  --primary-ink: #f0c05e;
+  --honey: #f0c05e;
+  --honey-soft: #3a2f17;
+  --honey-ink: #f3cd7a;
+  --on-honey: #1e1a0e;
+  --focus-ring: #9db8f5;
+  --cell-empty: #2e271a;
+  --cell-line: #000000;
+  --fm-bg: #0a0906;
+  --fm-bg-2: #1c1810;
+  --s1: #5fbfa5;
+  --s2: #ee9560;
+  --s3: #86a6ee;
+  --s4: #d594c6;
+  --s5: #a3c766;
+  --info-bg: #2e271a;
+}
+
+:root[data-skin='pop'] h1,
+:root[data-skin='pop'] .t-title,
+:root[data-skin='pop'] .serif,
+:root[data-skin='pop'] .big-num,
+:root[data-skin='pop'] .today-num,
+:root[data-skin='pop'] .hero-title,
+:root[data-skin='pop'] .brand {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+:root[data-skin='pop'] .card-title {
+  font-weight: 750;
+}
+
+/* surfaces */
+:root[data-skin='pop'] .card,
+:root[data-skin='pop'] .subject-tile,
+:root[data-skin='pop'] .tile {
+  border: 2.5px solid var(--edge);
+}
+:root[data-skin='pop'] .hero {
+  border: 2.5px solid var(--edge);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+:root[data-skin='pop'] .hero::after {
+  display: none;
+}
+
+/* buttons */
+:root[data-skin='pop'] .btn {
+  border: 2.5px solid var(--edge);
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  border-radius: 18px;
+}
+:root[data-skin='pop'] .btn-primary,
+:root[data-skin='pop'] .hero .btn-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 4px 0 var(--edge);
+}
+:root[data-skin='pop'] .btn-primary:hover:not([disabled]),
+:root[data-skin='pop'] .hero .btn-primary:hover:not([disabled]) {
+  background: var(--primary-press);
+  box-shadow: 0 4px 0 var(--edge);
+}
+:root[data-skin='pop'] .btn-primary:active:not([disabled]) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--edge);
+}
+:root[data-skin='pop'] .btn-secondary,
+:root[data-skin='pop'] .hero .btn-secondary {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--edge);
+  box-shadow: 0 3px 0 var(--edge);
+}
+:root[data-skin='pop'] .btn-quiet {
+  border-color: transparent;
+}
+:root[data-skin='pop'] .btn-danger {
+  border-color: var(--edge);
+  box-shadow: 0 3px 0 var(--edge);
+}
+:root[data-skin='pop'] .home-settings {
+  border: 2px solid var(--edge);
+  box-shadow: 0 2px 0 var(--edge);
+}
+
+/* chips, segmented, form controls */
+:root[data-skin='pop'] .chip {
+  border: 2px solid var(--edge);
+  font-weight: 700;
+}
+:root[data-skin='pop'] .chip.is-on,
+:root[data-skin='pop'] .chip[aria-pressed='true'] {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--edge);
+  box-shadow: 0 2px 0 var(--edge);
+}
+:root[data-skin='pop'] .segmented {
+  background: var(--surface);
+  border: 2px solid var(--edge);
+  border-radius: 16px;
+}
+:root[data-skin='pop'] .segment.is-on {
+  background: var(--edge);
+  color: var(--bg);
+  box-shadow: none;
+}
+:root[data-skin='pop'][data-theme='dark'] .segment.is-on {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+:root[data-skin='pop'] input:not([type='checkbox']),
+:root[data-skin='pop'] select,
+:root[data-skin='pop'] textarea {
+  border: 2.5px solid var(--edge);
+  border-radius: 16px;
+}
+:root[data-skin='pop'] input:not([type='checkbox']):focus,
+:root[data-skin='pop'] select:focus,
+:root[data-skin='pop'] textarea:focus {
+  border-color: var(--edge);
+  box-shadow: 0 0 0 4px var(--primary);
+}
+:root[data-skin='pop'] .switch {
+  border: 2px solid var(--edge);
+  background: var(--surface-2);
+}
+:root[data-skin='pop'] .switch::after {
+  top: 2px;
+  left: 2px;
+  border: 2px solid var(--edge);
+  box-shadow: none;
+}
+:root[data-skin='pop'] .switch:checked {
+  background: var(--primary);
+}
+:root[data-skin='pop'] .switch:checked::after {
+  transform: translateX(20px);
+}
+
+/* tags, bars, tiles */
+:root[data-skin='pop'] .tag {
+  border: 2px solid var(--edge);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 750;
+}
+:root[data-skin='pop'] .tag-honey,
+:root[data-skin='pop'] .tag-green {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+:root[data-skin='pop'] .bar {
+  border: 2px solid var(--edge);
+  height: 12px;
+}
+:root[data-skin='pop'] .tile-play {
+  border: 2px solid var(--edge);
+}
+:root[data-skin='pop'] .subject-tile:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--edge);
+}
+:root[data-skin='pop'] .strip-icon {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* overlays */
+:root[data-skin='pop'] .dialog {
+  border-top: 2.5px solid var(--edge);
+}
+:root[data-skin='pop'] .toast {
+  border: 2.5px solid var(--edge);
+}
+
+/* phone: the honey band behind the header, and a dark floating tab bar */
+@media (max-width: 899.98px) {
+  :root[data-skin='pop'] .shell {
+    background: radial-gradient(ellipse 150% 250px at 50% 0, var(--band) 99%, transparent 100%) no-repeat, var(--bg);
+  }
+  :root[data-skin='pop'] .topbar {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  :root[data-skin='pop'] .nav {
+    padding: 0 14px calc(14px + var(--sab));
+  }
+  :root[data-skin='pop'] .nav-inner {
+    padding: 6px 4px;
+    border: 0;
+    border-radius: 24px;
+    background: #1e2b26;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+  }
+  :root[data-skin='pop'][data-theme='dark'] .nav-inner {
+    background: #000;
+  }
+  :root[data-skin='pop'] .nav-link {
+    color: rgba(255, 246, 223, 0.72);
+  }
+  :root[data-skin='pop'] .nav-link.active {
+    color: #f0c05e;
+  }
+  :root[data-skin='pop'] .nav-study {
+    color: #fff6df;
+    filter: drop-shadow(0 4px 0 #000);
+  }
+  :root[data-skin='pop'] .nav-study-hex {
+    margin-top: -26px;
+    font-family: var(--font-display);
+    font-weight: 800;
+  }
+}
+
+/* ---------- Appearance: skin picker (previews are fixed art, so they look the same whatever skin is active) ---------- */
+.skin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.skin-card {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--ink);
+  border: 2px solid var(--line-strong);
+  border-radius: 18px;
+}
+.skin-card.is-on {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary);
+}
+.skin-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+.skin-preview {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 84px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f7f1e5;
+}
+.skin-preview i {
+  position: absolute;
+  display: block;
+}
+.sp-card {
+  left: 10px;
+  right: 10px;
+  top: 30px;
+  height: 28px;
+  border-radius: 9px;
+  background: #fffbf4;
+  border: 1px solid #e2d7c2;
+}
+.sp-btn {
+  left: 10px;
+  width: 56px;
+  bottom: 9px;
+  height: 14px;
+  border-radius: 6px;
+  background: #2f5d50;
+}
+.skin-preview-pop {
+  background: #fff6df;
+}
+.skin-preview-pop .sp-band {
+  left: -20%;
+  right: -20%;
+  top: -38px;
+  height: 66px;
+  border-radius: 0 0 50% 50%;
+  background: #e9b44c;
+}
+.skin-preview-pop .sp-card {
+  background: #fff;
+  border: 2px solid #1e2b26;
+  box-shadow: 0 2px 0 #1e2b26;
+}
+.skin-preview-pop .sp-btn {
+  background: #e9b44c;
+  border: 2px solid #1e2b26;
+  box-shadow: 0 2px 0 #1e2b26;
+}

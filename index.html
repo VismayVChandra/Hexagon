@@ -20,15 +20,19 @@
       (function () {
         try {
           var pref = 'system';
+          var skin = 'quiet';
           var raw = localStorage.getItem('hexagon.v1');
           if (raw) {
-            var t = (JSON.parse(raw).settings || {}).theme;
-            if (t === 'light' || t === 'dark') pref = t;
+            var st = JSON.parse(raw).settings || {};
+            if (st.theme === 'light' || st.theme === 'dark') pref = st.theme;
+            if (st.skin === 'pop') skin = 'pop';
           }
           var dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          document.documentElement.dataset.skin = skin;
+          var colors = { quiet: ['#F7F1E5', '#0E1916'], pop: ['#FFF6DF', '#17140D'] };
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute('content', dark ? '#0E1916' : '#F7F1E5');
+          if (m) m.setAttribute('content', colors[skin][dark ? 1 : 0]);
         } catch (e) {}
       })();
     </script>

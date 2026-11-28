@@ -233,7 +233,7 @@ function Shell() {
 function Gate() {
   const { status, loadError, data } = useStore();
   // Only apply once the saved choice has loaded; until then the pre-paint script in index.html decides.
-  useApplyTheme(status === 'ready' ? data.settings.theme : null);
+  useApplyTheme(status === 'ready' ? data.settings.theme : null, data.settings.skin);
   // Real friends (optional): check for a saved sign-in once the local data has loaded.
   useEffect(() => {
     if (status === 'ready') void initCloud();

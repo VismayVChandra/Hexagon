@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   weeklyGoalMin: 8 * 60,
   pomodoro: { focusMin: 25, breakMin: 5, longBreakMin: 15, cyclesBeforeLong: 4 },
   theme: 'system',
+  skin: 'quiet',
   scene: 'honeycomb',
   keepAwake: true,
   sound: true,

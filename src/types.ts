@@ -124,6 +124,8 @@ export interface Friend {
 }
 
 export type ThemePref = 'system' | 'light' | 'dark';
+/** The overall look. Works together with light/dark. */
+export type SkinPref = 'quiet' | 'pop';
 
 export interface Settings {
   displayName: string;
@@ -132,6 +134,8 @@ export interface Settings {
   pomodoro: PomodoroConfig;
   /** Appearance. `system` follows the device. */
   theme: ThemePref;
+  /** The look: Quiet Hive (calm) or Honey Pop (playful). Stays on this device, like the light/dark choice. */
+  skin: SkinPref;
   /** The scene used for the next session (remembered from the last one). */
   scene: Scene;
   keepAwake: boolean;

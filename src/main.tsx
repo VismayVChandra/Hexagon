@@ -4,6 +4,7 @@ import App from './App';
 // Self-hosted fonts (latin subsets are fetched on demand; both are cached for offline use by the service worker).
 import '@fontsource-variable/figtree/wght.css';
 import '@fontsource-variable/fraunces/wght.css';
+import '@fontsource-variable/bricolage-grotesque/wght.css'; // Honey Pop skin; only downloaded once something uses it
 import './styles.css';
 import { captureAuthRedirect } from './cloud/authRedirect';
 
