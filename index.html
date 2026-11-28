@@ -26,6 +26,7 @@
             var st = JSON.parse(raw).settings || {};
             if (st.theme === 'light' || st.theme === 'dark') pref = st.theme;
             if (st.skin === 'pop') skin = 'pop';
+            if (st.readable === true) document.documentElement.dataset.readable = 'on';
           }
           var dark = pref === 'dark' || (pref === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
           document.documentElement.dataset.theme = dark ? 'dark' : 'light';

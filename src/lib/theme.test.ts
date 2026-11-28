@@ -32,6 +32,15 @@ describe('theme', () => {
     expect(parseAppData(d)!.settings.skin).toBe('quiet');
   });
 
+  it('keeps easier-to-read text off unless it was switched on', () => {
+    const d = JSON.parse(JSON.stringify(emptyData()));
+    expect(parseAppData(d)!.settings.readable).toBe(false);
+    d.settings.readable = 'yes';
+    expect(parseAppData(d)!.settings.readable).toBe(false);
+    d.settings.readable = true;
+    expect(parseAppData(d)!.settings.readable).toBe(true);
+  });
+
   it('has a status-bar colour for every skin in light and dark', () => {
     for (const s of SKINS) {
       expect(themeColor(s.id, 'light')).toMatch(/^#[0-9A-F]{6}$/i);

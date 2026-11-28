@@ -79,9 +79,14 @@ export default function Progress() {
           <h1 className="page-title">Progress</h1>
           <p className="page-sub">Everything here is calculated from your saved sessions.</p>
         </div>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAdding(true)} disabled={subjects.length === 0}>
-          <Icon name="plus" size={16} /> Log past session
-        </button>
+        <div className="row">
+          <Link to="/garage" className="btn btn-secondary btn-sm">
+            <Icon name="car" size={16} /> Garage
+          </Link>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAdding(true)} disabled={subjects.length === 0}>
+            <Icon name="plus" size={16} /> Log past
+          </button>
+        </div>
       </header>
 
       {/* The hive and the garage live here now, so Home can stay focused on starting a session. */}

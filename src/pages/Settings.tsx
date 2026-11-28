@@ -99,6 +99,7 @@ export default function SettingsPage() {
 
       <AccountSettings />
 
+      <h2 className="settings-group">Look and feel</h2>
       <section className="card" aria-labelledby="look-h">
         <h2 id="look-h" className="card-title">
           Appearance
@@ -121,6 +122,14 @@ export default function SettingsPage() {
         <p className="hint">{settings.theme === 'system' ? 'Follows your device’s light or dark setting.' : `Always ${settings.theme}, whatever your device is set to.`}</p>
       </section>
 
+      <section className="card" aria-labelledby="a11y-h">
+        <h2 id="a11y-h" className="card-title">
+          Accessibility
+        </h2>
+        <Toggle id="s-readable" checked={settings.readable} onChange={(v) => updateSettings({ readable: v })} label="Easier-to-read text" description="Uses Atkinson Hyperlegible, a typeface designed to be clear for low vision and dyslexia. Animations follow your device’s reduce-motion setting." />
+      </section>
+
+      <h2 className="settings-group">Study</h2>
       <form onSubmit={save} noValidate className="stack">
         <section className="card" aria-labelledby="prof-h">
           <h2 id="prof-h" className="card-title">
@@ -178,10 +187,12 @@ export default function SettingsPage() {
         <Toggle id="s-haptics" checked={settings.haptics} onChange={(v) => updateSettings({ haptics: v })} disabled={!hapticsSupported} label="Vibration feedback" description={hapticsSupported ? 'A light buzz when you start, pause and finish.' : 'Not supported by this browser (iPhone browsers don’t allow it).'} />
       </section>
 
+      <h2 className="settings-group">Sound and alerts</h2>
       <SoundSettings />
 
       <NotificationSettings />
 
+      <h2 className="settings-group">Privacy and friends</h2>
       <section className="card" id="privacy" aria-labelledby="priv-h" tabIndex={-1}>
         <h2 id="priv-h" className="card-title">
           Privacy
@@ -263,6 +274,7 @@ export default function SettingsPage() {
         onCancel={() => setConfirmDeleteCloud(false)}
       />
 
+      <h2 className="settings-group">This device</h2>
       <section className="card" aria-labelledby="inst-h">
         <h2 id="inst-h" className="card-title">
           Install

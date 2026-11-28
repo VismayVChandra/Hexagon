@@ -4,7 +4,9 @@ import { showToast, useNow } from '../hooks/hooks';
 import { dailyMinFromWeeklyMs, examPlan, suggestWeeklyGoal } from '../lib/goals';
 import { recentWeeklyAverage } from '../lib/stats';
 import { HOUR, MIN, daysBetween, dayKey, formatDuration, formatShortDate, parseDayKey, relativeDays } from '../lib/time';
-import { Bar, EmptyState, Field, SubjectDot, subjectColor } from '../components/bits';
+import { Bar, EmptyState, Field, SubjectDot } from '../components/bits';
+import { Bee } from '../components/Bee';
+import { useQuickStart } from '../hooks/quickStart';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
 import { CourseSetupDialog } from '../components/Courses';
@@ -24,6 +26,11 @@ export default function Exams() {
   const past = useMemo(() => exams.filter((e) => e.date < today).sort((a, b) => b.date.localeCompare(a.date)), [exams, today]);
   const recentAvg = useMemo(() => recentWeeklyAverage(sessions, now), [sessions, now]);
   const suggestion = useMemo(() => suggestWeeklyGoal(exams, sessions, recentAvg, now), [exams, sessions, recentAvg, now]);
+  const nextExam = upcoming[0];
+  const rest = upcoming.slice(1);
+  const nextSubject = nextExam ? subjects.find((x) => x.id === nextExam.subjectId) : undefined;
+  const nextPlan = nextExam ? examPlan(nextExam, sessions, now) : undefined;
+  const study = useQuickStart();
   const editingExam = editing && editing !== 'new' ? exams.find((e) => e.id === editing) : undefined;
   const deleting = exams.find((e) => e.id === toDelete);
 
@@ -64,70 +71,115 @@ export default function Exams() {
       )}
       {setup && <CourseSetupDialog open onClose={() => setSetup(false)} />}
 
-      <section className="card" aria-labelledby="up-h">
-        <h2 id="up-h" className="card-title">
-          Upcoming
-        </h2>
-        {upcoming.length === 0 ? (
+      {upcoming.length === 0 ? (
+        <section className="card" aria-labelledby="up-h">
+          <h2 id="up-h" className="sr-only">
+            Upcoming exams
+          </h2>
           <EmptyState title="No upcoming exams" body="Add an exam with its date. You’ll see a countdown and a suggested weekly goal." action={subjects.length > 0 ? <button type="button" className="btn btn-primary" onClick={() => setEditing('new')}>Add exam</button> : undefined} />
-        ) : (
-          <ul className="exam-cards">
-            {upcoming.map((e) => {
-              const s = subjects.find((x) => x.id === e.subjectId);
-              const plan = examPlan(e, sessions, now);
-              const days = plan.daysLeft;
-              return (
-                <li key={e.id} className="exam-card">
-                  <span className={`days-badge${days <= 7 ? ' soon' : ''}`}>
-                    <strong>{days}</strong>
-                    <small>{days === 1 ? 'day' : 'days'}</small>
+        </section>
+      ) : (
+        <>
+          {nextExam && (
+            <section className="card ex-next" aria-labelledby="next-h">
+              <div className="ex-next-top">
+                <span className={`ex-hex ex-hex-lg${nextPlan!.daysLeft <= 7 ? ' soon' : ''}`} aria-hidden="true">
+                  <strong className="num">{nextPlan!.daysLeft}</strong>
+                  <small>{nextPlan!.daysLeft === 1 ? 'day' : 'days'}</small>
+                </span>
+                <div className="ex-next-text">
+                  <p className="eyebrow">Next up</p>
+                  <h2 id="next-h" className="t-title">
+                    {nextSubject?.name ?? 'Removed subject'}
+                  </h2>
+                  <p className="muted small">
+                    {parseDayKey(nextExam.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} · {relativeDays(nextPlan!.daysLeft)}
+                  </p>
+                </div>
+                <div className="exam-actions">
+                  <button type="button" className="icon-btn" aria-label={`Edit ${nextSubject?.name ?? ''} exam`} onClick={() => setEditing(nextExam.id)}>
+                    <Icon name="edit" size={18} />
+                  </button>
+                  <button type="button" className="icon-btn" aria-label={`Delete ${nextSubject?.name ?? ''} exam`} onClick={() => setToDelete(nextExam.id)}>
+                    <Icon name="trash" size={18} />
+                  </button>
+                </div>
+              </div>
+              {nextExam.notes && <p className="note">{nextExam.notes}</p>}
+              <div className="ex-next-bar">
+                <div className="subject-bars-top small">
+                  <span className="ex-bold">
+                    {formatDuration(nextPlan!.loggedMs)} of {nextExam.targetHours}h target
                   </span>
-                  <div className="exam-main">
-                    <p className="item-title">
-                      <SubjectDot subject={s} /> {s?.name ?? 'Removed subject'}
-                    </p>
-                    <p className="muted small">
-                      {parseDayKey(e.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })} · {relativeDays(days)}
-                    </p>
-                    {e.notes && <p className="note">{e.notes}</p>}
-                    <div className="subject-bars-top small">
-                      <span className="muted">
-                        Prep: {formatDuration(plan.loggedMs)} of {e.targetHours}h
-                      </span>
-                      {plan.remainingMs > 0 && <span className="muted">~{formatDuration(plan.perWeekMs)}/week needed</span>}
+                  {nextPlan!.remainingMs > 0 && <span className="muted">~{formatDuration(nextPlan!.perWeekMs / 7)}/day</span>}
+                </div>
+                <Bar value={nextPlan!.loggedMs / (nextExam.targetHours * HOUR)} label={`Preparation for ${nextSubject?.name ?? 'exam'}`} />
+              </div>
+              {nextSubject && !nextSubject.demo && (
+                <button type="button" className="btn btn-primary btn-block" disabled={!!data.active} onClick={() => study(nextSubject)}>
+                  <Icon name="play" size={16} /> Study {nextSubject.name}
+                </button>
+              )}
+            </section>
+          )}
+
+          {rest.length > 0 && (
+            <ul className="group-list" aria-label="More exams">
+              {rest.map((e) => {
+                const s = subjects.find((x) => x.id === e.subjectId);
+                const plan = examPlan(e, sessions, now);
+                return (
+                  <li key={e.id} className="group-row">
+                    <span className={`ex-hex${plan.daysLeft <= 7 ? ' soon' : ''}`} aria-hidden="true">
+                      <strong className="num">{plan.daysLeft}</strong>
+                    </span>
+                    <div className="group-row-text">
+                      <p className="item-title">
+                        <SubjectDot subject={s} /> {s?.name ?? 'Removed subject'}
+                      </p>
+                      <p className="muted small">
+                        {parseDayKey(e.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} · {plan.loggedMs > 0 ? `${formatDuration(plan.loggedMs)} of ${e.targetHours}h` : 'not started'}
+                      </p>
                     </div>
-                    <Bar value={plan.loggedMs / (e.targetHours * HOUR)} color={subjectColor(s)} label={`Preparation for ${s?.name ?? 'exam'}`} />
-                  </div>
-                  <div className="exam-actions">
                     <button type="button" className="icon-btn" aria-label={`Edit ${s?.name ?? ''} exam`} onClick={() => setEditing(e.id)}>
                       <Icon name="edit" size={18} />
                     </button>
                     <button type="button" className="icon-btn" aria-label={`Delete ${s?.name ?? ''} exam`} onClick={() => setToDelete(e.id)}>
                       <Icon name="trash" size={18} />
                     </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      )}
+
+      <section className="card-flat ex-goal" aria-labelledby="goal-h">
+        <Bee pose="idle" size={48} />
+        <div className="ex-goal-text">
+          <h2 id="goal-h" className="ex-bold">
+            {suggestion ? `Weekly goal → ${formatDuration(suggestion.suggestedMs)}?` : `Weekly goal: ${formatDuration(settings.weeklyGoalMin * MIN)}`}
+          </h2>
+          <span className="muted small">{suggestion ? suggestion.reason : 'Add an exam and Pip will suggest one.'}</span>
+        </div>
+        {suggestion && (
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => applyGoal(suggestion.suggestedMs)} disabled={Math.round(suggestion.suggestedMs / MIN) === settings.weeklyGoalMin}>
+            {Math.round(suggestion.suggestedMs / MIN) === settings.weeklyGoalMin ? 'Set' : 'Use'}
+          </button>
         )}
       </section>
 
-      <section className="card goal-helper" aria-labelledby="goal-h">
-        <h2 id="goal-h" className="card-title">
-          Weekly goal
-        </h2>
+      <details className="card goal-helper">
+        <summary className="card-title">Goal details</summary>
         <p>
           Current goal: <strong>{formatDuration(settings.weeklyGoalMin * MIN)}</strong> a week
           <span className="muted"> · about {formatDuration(settings.dailyGoalMin * MIN)} a day</span>
         </p>
         <p className="muted small">Your recent pace: {recentAvg > 0 ? `${formatDuration(recentAvg)} a week` : 'no history yet'}.</p>
 
-        {suggestion ? (
+        {suggestion && (
           <div className="suggestion">
-            <p className="eyebrow">Suggested</p>
-            <p className="big-num">{formatDuration(suggestion.suggestedMs)} a week</p>
-            <p className="muted">{suggestion.reason}</p>
             {suggestion.rampUp && (
               <p className="muted small">
                 Full need: {formatDuration(suggestion.neededMs)} a week. Revisit this in a week or two.
@@ -146,23 +198,18 @@ export default function Exams() {
                 );
               })}
             </ul>
-            <button type="button" className="btn btn-primary" onClick={() => applyGoal(suggestion.suggestedMs)} disabled={Math.round(suggestion.suggestedMs / MIN) === settings.weeklyGoalMin}>
-              {Math.round(suggestion.suggestedMs / MIN) === settings.weeklyGoalMin ? 'Already your goal' : 'Use this goal'}
-            </button>
           </div>
-        ) : (
-          <p className="muted">Add an upcoming exam and Hexagon will suggest a goal based on the hours you want to put in and how much you already study.</p>
         )}
 
         <form onSubmit={applyCustom} noValidate className="inline-form">
-          <Field label="Or set your own (hours per week)" htmlFor="custom-goal" error={goalError}>
+          <Field label="Set your own (hours per week)" htmlFor="custom-goal" error={goalError}>
             <input id="custom-goal" inputMode="decimal" value={customGoal} placeholder="e.g. 10" aria-invalid={!!goalError} onChange={(e) => setCustomGoal(e.target.value)} />
           </Field>
           <button type="submit" className="btn btn-secondary">
             Set goal
           </button>
         </form>
-      </section>
+      </details>
 
       {past.length > 0 && (
         <details className="card">

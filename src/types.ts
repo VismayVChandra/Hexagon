@@ -144,6 +144,8 @@ export interface Settings {
   theme: ThemePref;
   /** The look: Quiet Hive (calm) or Honey Pop (playful). Stays on this device, like the light/dark choice. */
   skin: SkinPref;
+  /** Use Atkinson Hyperlegible for all text (easier to read). Stays on this device. */
+  readable: boolean;
   /** The first-run welcome has been completed (or skipped). */
   onboarded: boolean;
   /** The scene used for the next session (remembered from the last one). */

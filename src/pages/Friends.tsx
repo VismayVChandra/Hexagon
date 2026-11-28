@@ -7,11 +7,19 @@ import { addFriendByCode, regenerateCode, removeFriendship, setPendingInvite, us
 import { cloudConfigured } from '../cloud/config';
 import { formatFriendCode, isCurrentCode, normalizeFriendCode } from '../cloud/presence';
 import { useFriendRows } from '../cloud/useFriendRows';
-import { formatDuration } from '../lib/time';
 import { CloudSignIn } from '../components/CloudSignIn';
-import { DemoBadge, EmptyState, Field, FriendAvatar, StateBadge } from '../components/bits';
+import { DemoBadge, EmptyState, Field, FriendAvatar } from '../components/bits';
+import type { FriendState } from '../types';
 import { ConfirmDialog, Dialog } from '../components/Dialog';
 import { Icon } from '../components/Icon';
+
+/** Friends are shown by what they're doing right now, and nothing else. */
+const GROUPS: { state: FriendState; label: string; sub: (live: boolean) => string }[] = [
+  { state: 'studying', label: 'Studying now', sub: () => 'Studying' },
+  { state: 'online', label: 'Around', sub: () => 'Online' },
+  { state: 'finished', label: 'Earlier today', sub: () => 'Finished for today' },
+  { state: 'offline', label: 'Offline', sub: (live) => (live ? 'Offline or not sharing' : 'Offline') },
+];
 
 export default function Friends() {
   const { data } = useStore();
@@ -117,10 +125,10 @@ export default function Friends() {
       <header className="page-head row row-split">
         <div>
           <h1 className="page-title">Friends</h1>
-          <p className="page-sub">See who’s focusing. No feeds, no messages, no rankings.</p>
+          <p className="page-sub">See who’s focusing. Nothing more.</p>
         </div>
         <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAdding(true)}>
-          <Icon name="plus" size={16} /> Add friend
+          <Icon name="plus" size={16} /> Add
         </button>
       </header>
 
@@ -178,34 +186,24 @@ export default function Friends() {
         </section>
       )}
 
-      <section className="card privacy-card" aria-labelledby="me-h">
-        <div className="card-head">
-          <h2 id="me-h" className="card-title">
-            Your visibility
-          </h2>
-          <Link to="/settings#privacy" className="link-btn">
-            Change
-          </Link>
-        </div>
-        <p>
-          <Icon name="lock" size={16} className="inline-icon" />{' '}
+      <Link to="/settings#privacy" className="privacy-pill" aria-label="Your visibility. Change it in Settings.">
+        <Icon name="lock" size={20} />
+        <span>
           {settings.sharePresence
             ? settings.shareSubject
-              ? `${live ? 'Friends you’ve accepted' : 'Friends in demo rooms'} see when you’re studying, and the subject.`
-              : `${live ? 'Friends you’ve accepted' : 'Friends in demo rooms'} see when you’re studying, but not the subject.`
+              ? `${live ? 'Friends' : 'Friends in demo rooms'} see when you’re studying, and your subject.`
+              : `${live ? 'Friends' : 'Friends in demo rooms'} see when you’re studying. Never your subject.`
             : 'Private. When you study, nobody sees it.'}
-        </p>
-      </section>
+        </span>
+        <span className="privacy-edit">Edit</span>
+      </Link>
 
-      <section className="card" aria-labelledby="list-h">
-        <div className="card-head">
-          <h2 id="list-h" className="card-title">
-            Study buddies
+      {live && rows.length > 0 && <p className="hint">{cloud.syncError ? 'Offline. Showing the last update we got.' : 'Updates about every 20 seconds while the app is open.'}</p>}
+      {rows.length === 0 ? (
+        <section className="card" aria-labelledby="list-h">
+          <h2 id="list-h" className="sr-only">
+            Friends
           </h2>
-          {rows.length > 0 && !live && <DemoBadge>Simulated</DemoBadge>}
-        </div>
-        {live && <p className="hint">{cloud.syncError ? 'Offline. Showing the last update we got.' : 'Updates about every 20 seconds while the app is open.'}</p>}
-        {rows.length === 0 ? (
           <EmptyState
             title="No friends yet"
             body={live ? 'Share your code, or type a friend’s code, to see when they’re studying.' : 'Add a friend to try the experience. In this version they’re simulated.'}
@@ -215,43 +213,47 @@ export default function Friends() {
               </button>
             }
           />
-        ) : (
-          <ul className="friend-list">
-            {rows.map((r) => (
-              <li key={r.removeId}>
-                <FriendAvatar friend={r} state={r.state} size={44} />
-                <div className="friend-main">
-                  <p className="item-title">{r.name}</p>
-                  <p className="muted small">
-                    {r.state === 'studying' && (
-                      <>
-                        {r.subject ?? 'Subject private'} · {formatDuration(r.sessionMs)} so far
-                      </>
-                    )}
-                    {r.state === 'finished' && (
-                      <>
-                        Studied {formatDuration(r.sessionMs)}
-                        {r.subject ? ` · ${r.subject}` : ''}
-                      </>
-                    )}
-                    {r.state === 'online' && 'Around, not studying'}
-                    {r.state === 'offline' && (live ? 'Offline or not sharing' : 'Offline')}
-                  </p>
-                </div>
-                <StateBadge state={r.state} />
-                <button type="button" className="icon-btn" aria-label={`Remove ${r.name}`} onClick={() => setRemoving(r.removeId)}>
-                  <Icon name="trash" size={18} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {rows.length > 0 && !live && (
-          <Link to="/study" className="btn btn-quiet btn-block">
-            <Icon name="users" size={18} /> Start a session with friends
-          </Link>
-        )}
-      </section>
+        </section>
+      ) : (
+        <>
+          {GROUPS.map((g) => {
+            const items = rows.filter((r) => r.state === g.state);
+            if (items.length === 0) return null;
+            return (
+              <section key={g.state} className="fr-group" aria-labelledby={`fr-${g.state}`}>
+                <p id={`fr-${g.state}`} className="eyebrow">
+                  {g.label} · {items.length}
+                </p>
+                <ul className="group-list">
+                  {items.map((r) => (
+                    <li key={r.removeId} className="group-row">
+                      <FriendAvatar friend={r} size={44} />
+                      <div className="group-row-text">
+                        <p className="item-title">{r.name}</p>
+                        {/* Presence only: never a duration. A subject shows only if that friend chose to share it. */}
+                        <p className="muted small fr-state">
+                          {r.state === 'studying' && <span className="live-dot" aria-hidden="true" />}
+                          {g.sub(live)}
+                          {r.state === 'studying' && r.subject ? ` · ${r.subject}` : ''}
+                        </p>
+                      </div>
+                      <button type="button" className="icon-btn" aria-label={`Remove ${r.name}`} onClick={() => setRemoving(r.removeId)}>
+                        <Icon name="trash" size={18} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+          {!live && <DemoBadge>Simulated friends</DemoBadge>}
+          {!live && (
+            <Link to="/study" className="btn btn-quiet btn-block">
+              <Icon name="users" size={18} /> Start a session with friends
+            </Link>
+          )}
+        </>
+      )}
 
       <section aria-labelledby="rooms-h" className="stack">
         <div className="row row-split">

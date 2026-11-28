@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CARS, LETTERS, TIERS, buildMs, buildTimeLabel, carsInTier, carsWithLetter, type Car } from '../data/cars';
+import { CARS, LETTERS, TIERS, buildMs, buildTimeLabel, carsInTier, carsWithLetter, type Car, type Tier } from '../data/cars';
+import { Icon } from '../components/Icon';
 import { useStore } from '../store/store';
 import { Bar } from '../components/bits';
 import { CarArt } from '../components/CarArt';
@@ -13,6 +14,12 @@ export default function Garage() {
   const { data } = useStore();
   const owned = new Set(data.garage.map((g) => g.carId));
   const [view, setView] = useState<'tier' | 'az'>('tier');
+  // Start on the tier you're working on, or the first one with cars still to build.
+  const [tier, setTier] = useState<Tier['n']>(() => {
+    const started = CARS.filter((c) => !owned.has(c.id) && (data.builds[c.id] ?? 0) > 0).sort((a, b) => (data.builds[b.id] ?? 0) / buildMs(b) - (data.builds[a.id] ?? 0) / buildMs(a))[0];
+    return started?.tier ?? TIERS.find((t) => carsInTier(t.n).some((c) => !owned.has(c.id)))?.n ?? 1;
+  });
+  const [letter, setLetter] = useState<string>(LETTERS[0] ?? 'A');
 
   const grid = (cars: Car[], showTime: boolean) => (
     <ul className="garage-grid">
@@ -32,14 +39,44 @@ export default function Garage() {
     </ul>
   );
 
+  const progressOf = (car: Car) => (owned.has(car.id) ? 1 : Math.min(1, (data.builds[car.id] ?? 0) / buildMs(car)));
+  // The car you're furthest into, shown first like a project on the workbench.
+  const inShop = CARS.filter((c) => !owned.has(c.id) && (data.builds[c.id] ?? 0) > 0).sort((a, b) => progressOf(b) - progressOf(a))[0];
+  const shopTier = inShop ? TIERS[inShop.tier - 1] : undefined;
+  const cars = view === 'tier' ? carsInTier(tier) : carsWithLetter(letter);
+
   return (
     <div className="page">
-      <header className="page-head">
-        <h1 className="page-title">Your garage</h1>
-        <p className="page-sub">
-          {owned.size} of {CARS.length} built. Choose “Build a car” when you start a session, and study to fit its parts.
-        </p>
+      <header className="page-head gr-head">
+        <Link to="/progress" className="icon-btn" aria-label="Back to Progress">
+          <Icon name="chevron" className="flip-x" />
+        </Link>
+        <div>
+          <h1 className="page-title">Garage</h1>
+          <p className="page-sub">
+            {owned.size} of {CARS.length} cars
+          </p>
+        </div>
       </header>
+
+      {inShop && shopTier && (
+        <section className="card gr-shop" aria-labelledby="shop-h">
+          <div className="gr-shop-top">
+            <h2 id="shop-h" className="eyebrow">
+              In the workshop
+            </h2>
+            <span className="gr-shop-tag">
+              Tier {shopTier.n} · {shopTier.buildMin >= 60 ? `${shopTier.buildMin / 60}h` : `${shopTier.buildMin} min`}
+            </span>
+          </div>
+          <CarArt car={inShop} progress={progressOf(inShop)} label={`${inShop.name}, ${Math.floor(progressOf(inShop) * 100)}% built`} />
+          <div className="subject-bars-top">
+            <span className="gr-shop-name">{inShop.name}</span>
+            <span className="num">{Math.floor(progressOf(inShop) * 100)}%</span>
+          </div>
+          <Bar value={progressOf(inShop)} color="var(--honey)" label={`${inShop.name} build progress`} />
+        </section>
+      )}
 
       <div role="radiogroup" aria-label="How to list cars" className="segmented segmented-sm">
         <button type="button" role="radio" aria-checked={view === 'tier'} className={`segment${view === 'tier' ? ' is-on' : ''}`} onClick={() => setView('tier')}>
@@ -50,42 +87,39 @@ export default function Garage() {
         </button>
       </div>
 
-      {view === 'az' &&
-        LETTERS.map((l) => {
-          const cars = carsWithLetter(l);
-          const have = cars.filter((c) => owned.has(c.id)).length;
-          return (
-            <section key={l} className="card" aria-labelledby={`letter-${l}`}>
-              <div className="card-head">
-                <h2 id={`letter-${l}`} className="card-title">
-                  {l}
-                </h2>
-                <span className="muted small">
-                  {have} of {cars.length}
+      {view === 'tier' ? (
+        <div role="radiogroup" aria-label="Tier" className="gr-chips">
+          {TIERS.map((t) => {
+            const have = carsInTier(t.n).filter((c) => owned.has(c.id)).length;
+            return (
+              <button key={t.n} type="button" role="radio" aria-checked={tier === t.n} className={`chip${tier === t.n ? ' is-on' : ''}`} onClick={() => setTier(t.n)}>
+                T{t.n} · {t.buildMin >= 60 ? `${t.buildMin / 60}h` : `${t.buildMin}m`}
+                <span className="sr-only">
+                  , {have} of {carsInTier(t.n).length} built
                 </span>
-              </div>
-              {grid(cars, true)}
-            </section>
-          );
-        })}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div role="radiogroup" aria-label="Brand starts with" className="gr-chips">
+          {LETTERS.map((l) => {
+            const inLetter = carsWithLetter(l);
+            const have = inLetter.filter((c) => owned.has(c.id)).length;
+            return (
+              <button key={l} type="button" role="radio" aria-checked={letter === l} className={`chip${letter === l ? ' is-on' : ''}`} onClick={() => setLetter(l)}>
+                {l}
+                <span className="sr-only">
+                  , {have} of {inLetter.length} built
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-      {view === 'tier' && TIERS.map((t) => {
-        const cars = carsInTier(t.n);
-        const have = cars.filter((c) => owned.has(c.id)).length;
-        return (
-          <section key={t.n} className="card" aria-labelledby={`tier-${t.n}`}>
-            <div className="card-head">
-              <h2 id={`tier-${t.n}`} className="card-title">
-                {t.name} <span className="muted">· {t.buildMin >= 60 ? `${t.buildMin / 60} h` : `${t.buildMin} min`} each</span>
-              </h2>
-              <span className="muted small">
-                {have} of {cars.length}
-              </span>
-            </div>
-            {grid(cars, false)}
-          </section>
-        );
-      })}
+      {view === 'tier' && <p className="muted small gr-blurb">{TIERS[tier - 1].blurb}</p>}
+      {grid(cars, view === 'az')}
 
       <Link to="/study" className="btn btn-primary">
         Start a build

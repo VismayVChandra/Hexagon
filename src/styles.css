@@ -4812,3 +4812,226 @@ svg.comb-hive {
   white-space: nowrap;
   padding: 0 14px;
 }
+
+/* ---------- Redesign step 4: Progress, Friends, Exams, Settings, Garage ---------- */
+/* Readable text option (Atkinson Hyperlegible) */
+:root[data-readable='on'] {
+  --font-ui: 'Atkinson Hyperlegible', 'Figtree Variable', system-ui, sans-serif;
+  --sans: var(--font-ui);
+}
+
+/* grouped list rows */
+.group-list {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.group-row:last-child {
+  border-bottom: 0;
+}
+.group-row-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Progress */
+.tile {
+  background: var(--surface-2);
+  border: 0;
+  border-radius: var(--r-lg);
+}
+.tile .big-num {
+  font-family: var(--font-display);
+}
+
+/* Friends */
+.privacy-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--primary-soft);
+  color: var(--primary-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.privacy-pill > svg {
+  flex: none;
+}
+.privacy-pill > span:first-of-type {
+  flex: 1;
+}
+.privacy-edit {
+  text-decoration: underline;
+}
+.fr-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fr-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Exams */
+.ex-hex {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 48px;
+  background: var(--surface-2);
+  color: var(--ink);
+  clip-path: url(#hex-round);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.ex-hex.soon {
+  background: var(--honey);
+  color: var(--on-honey, #1e2b26);
+}
+.ex-hex small {
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+.ex-hex-lg {
+  width: 76px;
+  height: 84px;
+  background: var(--honey);
+  color: var(--on-honey, #1e2b26);
+}
+.ex-hex-lg strong {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 600;
+}
+.ex-next {
+  gap: 14px;
+}
+.ex-next-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ex-next-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ex-next-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ex-bold {
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+.ex-goal {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+.ex-goal-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Garage */
+.gr-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gr-shop {
+  background: var(--fm-bg);
+  border-color: transparent;
+  color: var(--fm-ink);
+  --muted: var(--fm-ink-2);
+  --ink: var(--fm-ink);
+  --track: rgba(244, 236, 221, 0.15);
+}
+.gr-shop-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gr-shop-top .eyebrow {
+  color: var(--fm-ink-2);
+}
+.gr-shop-tag {
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(244, 236, 221, 0.12);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+.gr-shop-name {
+  font-weight: 650;
+}
+.gr-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.gr-chips::-webkit-scrollbar {
+  display: none;
+}
+.gr-chips .chip {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+}
+.gr-blurb {
+  margin-top: -4px;
+}
+
+/* Settings */
+.settings-group {
+  margin: 8px 0 -4px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: var(--font-ui);
+}
+:root[data-skin='pop'] .tile,
+:root[data-skin='pop'] .group-list {
+  border: 2.5px solid var(--edge);
+}
+:root[data-skin='pop'] .tile {
+  box-shadow: 0 3px 0 var(--edge);
+}
+:root[data-skin='pop'] .privacy-pill {
+  border: 2px solid var(--edge);
+}
+:root[data-skin='pop'] .ex-hex {
+  background: var(--surface-2);
+}
