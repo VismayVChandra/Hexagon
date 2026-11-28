@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { GarageItem } from '../types';
 import { CARS, buildMs, carById, type Car } from '../data/cars';
@@ -5,14 +6,20 @@ import { Bar } from './bits';
 import { CarArt } from './CarArt';
 import { CarPhoto } from './CarPhoto';
 
-/** A short look at your garage: the cars you built most recently and the one you're working on. */
+/** How many built cars the card shows before "See more". */
+const PREVIEW = 3;
+
+/** A short look at your garage: your newest built cars (more on request) and the one you're working on. */
 export function GarageCard({ garage, builds }: { garage: GarageItem[]; builds: Record<string, number> }) {
   const owned = new Set(garage.map((g) => g.carId));
-  const recent = [...garage]
+  const [expanded, setExpanded] = useState(false);
+  const built = [...garage]
     .sort((a, b) => b.at - a.at)
     .map((g) => carById(g.carId))
-    .filter((c): c is Car => !!c)
-    .slice(0, 3);
+    .filter((c): c is Car => !!c);
+  // Three of your newest cars at first; the rest are one tap away.
+  const recent = expanded ? built : built.slice(0, PREVIEW);
+  const hidden = built.length - PREVIEW;
   const working = CARS.filter((c) => !owned.has(c.id) && (builds[c.id] ?? 0) > 0).sort((a, b) => (builds[b.id] ?? 0) / buildMs(b) - (builds[a.id] ?? 0) / buildMs(a))[0];
   const items = working ? [...recent, working] : recent;
 
@@ -44,6 +51,11 @@ export function GarageCard({ garage, builds }: { garage: GarageItem[]; builds: R
         </ul>
       ) : (
         <p className="muted">Nothing built yet. Choose “Build a car” on the Study page and pick one to start.</p>
+      )}
+      {hidden > 0 && (
+        <button type="button" className="btn btn-secondary btn-block" aria-expanded={expanded} onClick={() => setExpanded((v) => !v)}>
+          {expanded ? 'Show fewer' : `See ${hidden} more built ${hidden === 1 ? 'car' : 'cars'}`}
+        </button>
       )}
       <div className="row">
         <Link to="/garage" className="link-btn">
