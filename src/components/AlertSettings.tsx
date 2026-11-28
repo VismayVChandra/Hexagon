@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { updateSettings, useStore } from '../store/store';
 import { showToast } from '../hooks/hooks';
 import { Toggle } from './bits';
 import { SoundPicker } from './SessionExtras';
 import { CUES, CUE_TONE_LABELS, previewCue } from '../lib/sfx';
-import { anchorDayFor, nudgeSupport, notifyPermission, requestNotifyPermission, showNotification, type NotifyPermission } from '../lib/notify';
-import { nudgeMessage } from '../lib/messages';
-import { dayKey, daysBetween } from '../lib/time';
+import { nudgeSupport, notifyPermission, requestNotifyPermission, showNotification, type NotifyPermission } from '../lib/notify';
 import { CUE_TONES, type CueTone } from '../types';
 import { cloudConfigured } from '../cloud/config';
 import { presencePromptWanted } from './AccountCard';
@@ -210,51 +207,6 @@ export function NotifyPrompt() {
         </button>
         <button type="button" className="btn btn-quiet" onClick={() => updateSettings({ notifyPromptDismissed: true })}>
           Not now
-        </button>
-      </div>
-    </section>
-  );
-}
-
-/** Shown on Home after two or more days away: a warm, small way back in. */
-export function ComebackCard() {
-  const { data } = useStore();
-  const [hidden, setHidden] = useState(() => {
-    try {
-      return sessionStorage.getItem('hexagon.comeback') === dayKey(Date.now());
-    } catch {
-      return false;
-    }
-  });
-  const real = data.sessions.filter((x) => !x.demo);
-  if (hidden || data.active || real.length === 0) return null;
-  const gap = daysBetween(anchorDayFor(real, Date.now()), dayKey(Date.now()));
-  if (gap < 2) return null;
-  const msg = nudgeMessage(gap, { name: data.settings.displayName.trim(), streak: 0 });
-
-  return (
-    <section className="card comeback-card" aria-labelledby="cb-h">
-      <h2 id="cb-h" className="card-title">
-        {msg.title}
-      </h2>
-      <p className="muted small">{msg.body}</p>
-      <div className="row">
-        <Link to="/study" className="btn btn-primary">
-          Start a short session
-        </Link>
-        <button
-          type="button"
-          className="btn btn-quiet"
-          onClick={() => {
-            try {
-              sessionStorage.setItem('hexagon.comeback', dayKey(Date.now()));
-            } catch {
-              /* just hide it for now */
-            }
-            setHidden(true);
-          }}
-        >
-          Later
         </button>
       </div>
     </section>

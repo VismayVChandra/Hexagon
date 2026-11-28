@@ -15,8 +15,7 @@ import { HoneycombScene } from '../components/CombView';
 import { CarScene } from '../components/CarArt';
 import { buildMs, carById } from '../data/cars';
 import { CELL_MS } from '../lib/hive';
-import { FocusPicker, PlanCard, SoundCard } from '../components/SessionExtras';
-import type { FocusRating } from '../types';
+import { PlanCard, SoundCard } from '../components/SessionExtras';
 
 function encouragement(studiedMs: number, todayTotal: number, goalMs: number, isBreak: boolean): string {
   if (isBreak) return 'Rest well. You’ve earned it.';
@@ -38,7 +37,6 @@ export default function Session() {
   const [discarding, setDiscarding] = useState(false);
   const [sheet, setSheet] = useState<null | 'plan' | 'options'>(null);
   const [notes, setNotes] = useState('');
-  const [focus, setFocus] = useState<FocusRating | undefined>();
   // Opening the finish sheet pauses the clock; if it is dismissed rather than saved, pick up where the student was.
   const resumeOnClose = useRef(false);
   // Set just before we clear the session ourselves, so the "no session -> go to Study" redirect doesn't race our own navigation.
@@ -123,13 +121,12 @@ export default function Session() {
 
   function save() {
     leaving.current = true;
-    const r = finishSession(notes, focus);
+    const r = finishSession(notes);
     if (r.ok) {
       setFinishing(false);
       setNotes('');
-      setFocus(undefined);
       haptic('success', data.settings.haptics);
-      navigate('/', { replace: true });
+      navigate('/done', { replace: true });
     } else {
       leaving.current = false;
       showToast(r.error, 'error');
@@ -417,7 +414,6 @@ export default function Session() {
             Plan: {active.tasks.filter((t) => t.done).length} of {active.tasks.length} done
           </p>
         )}
-        <FocusPicker value={focus} onChange={setFocus} />
         <div className="field">
           <label htmlFor="notes">What did you study? (optional)</label>
           <textarea id="notes" rows={4} maxLength={600} value={notes} placeholder="Problems finished, chapters read, what to revisit…" onChange={(e) => setNotes(e.target.value)} />

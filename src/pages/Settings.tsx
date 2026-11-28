@@ -13,7 +13,7 @@ import { AdminLink } from '../components/AdminLink';
 import { NotificationSettings, SoundSettings } from '../components/AlertSettings';
 import { AccountSettings } from '../components/AccountCard';
 import { dayKey } from '../lib/time';
-import { SKINS } from '../lib/skins';
+import { SkinPicker } from '../components/SkinPicker';
 import type { Settings } from '../types';
 
 function toForm(s: Settings) {
@@ -106,22 +106,7 @@ export default function SettingsPage() {
         <p className="eyebrow" id="skin-h">
           Style
         </p>
-        <div role="radiogroup" aria-labelledby="skin-h" className="skin-grid">
-          {SKINS.map((s) => (
-            <button key={s.id} type="button" role="radio" aria-checked={settings.skin === s.id} className={`skin-card${settings.skin === s.id ? ' is-on' : ''}`} onClick={() => updateSettings({ skin: s.id })}>
-              <span className={`skin-preview skin-preview-${s.id}`} aria-hidden="true">
-                <i className="sp-band" />
-                <i className="sp-card" />
-                <i className="sp-btn" />
-              </span>
-              <span className="skin-name">
-                {s.label}
-                {settings.skin === s.id && <Icon name="check" size={16} />}
-              </span>
-              <span className="muted small">{s.blurb}</span>
-            </button>
-          ))}
-        </div>
+        <SkinPicker labelledBy="skin-h" />
         <p className="eyebrow" id="mode-h">
           Light or dark
         </p>

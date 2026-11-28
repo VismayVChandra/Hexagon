@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pomodoro: { focusMin: 25, breakMin: 5, longBreakMin: 15, cyclesBeforeLong: 4 },
   theme: 'system',
   skin: 'quiet',
+  onboarded: false,
   scene: 'honeycomb',
   keepAwake: true,
   sound: true,

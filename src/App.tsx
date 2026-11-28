@@ -6,7 +6,8 @@ import { initCloud } from './cloud/cloud';
 import { analytics, setAnalyticsEnabled } from './cloud/analytics';
 import { dismissToast, showToast, useNow, useToasts } from './hooks/hooks';
 import { computeView } from './lib/timer';
-import { formatClock, formatTimeOfDay } from './lib/time';
+import { dayKey, formatClock, formatTimeOfDay } from './lib/time';
+import { comebackWanted, needsWelcome } from './lib/onboarding';
 import { Icon, Logo } from './components/Icon';
 import { Dialog } from './components/Dialog';
 import { AmbientHost } from './components/AmbientHost';
@@ -21,6 +22,9 @@ import Exams from './pages/Exams';
 import SettingsPage from './pages/Settings';
 import Garage from './pages/Garage';
 import AdminPage from './pages/Admin';
+import Welcome from './pages/Welcome';
+import Reward from './pages/Reward';
+import WelcomeBack from './pages/WelcomeBack';
 
 function Splash({ children }: { children?: React.ReactNode }) {
   return (
@@ -242,8 +246,40 @@ function Shell() {
   );
 }
 
+function comebackShownToday(): boolean {
+  try {
+    return sessionStorage.getItem('hexagon.comeback') === dayKey(Date.now());
+  } catch {
+    return false;
+  }
+}
+
+/** Welcome, reward and come-back screens: full screen, no tab bar. */
+function FullLayout() {
+  const loc = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    mainRef.current?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0 });
+  }, [loc.pathname]);
+  return (
+    <>
+      <main id="main" ref={mainRef} tabIndex={-1} className="full">
+        <Outlet />
+      </main>
+      <ToastHost />
+    </>
+  );
+}
+
 function Gate() {
   const { status, loadError, data } = useStore();
+  const loc = useLocation();
   // Only apply once the saved choice has loaded; until then the pre-paint script in index.html decides.
   useApplyTheme(status === 'ready' ? data.settings.theme : null, data.settings.skin);
   // Real friends (optional): check for a saved sign-in once the local data has loaded.
@@ -294,8 +330,18 @@ function Gate() {
       </Splash>
     );
   }
+  // First launch: the welcome comes first. After a few days away: one warm screen, once a day, never a count of missed days.
+  const welcome = needsWelcome(data);
+  if (welcome && loc.pathname !== '/welcome') return <Navigate to="/welcome" replace />;
+  if (!welcome && loc.pathname === '/' && comebackWanted(data, Date.now(), comebackShownToday())) return <Navigate to="/back" replace />;
+
   return (
     <Routes>
+      <Route element={<FullLayout />}>
+        <Route path="welcome" element={<Welcome />} />
+        <Route path="done" element={<Reward />} />
+        <Route path="back" element={<WelcomeBack />} />
+      </Route>
       <Route element={<Shell />}>
         <Route index element={<Home />} />
         <Route path="study" element={<Study />} />

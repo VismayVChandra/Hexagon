@@ -382,6 +382,11 @@ export function finishSession(notes: string, focus?: FocusRating, now = Date.now
   return { ok: true, value: session };
 }
 
+/** Rate how focused a saved session felt (from the reward screen). Passing undefined clears the rating. */
+export function setSessionFocus(sessionId: string, focus: FocusRating | undefined) {
+  mutate((d) => ({ ...d, sessions: d.sessions.map((s) => (s.id === sessionId ? { ...s, focus } : s)) }));
+}
+
 export function dismissSummary() {
   if (state.summary) set({ summary: null });
 }

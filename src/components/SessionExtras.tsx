@@ -168,25 +168,4 @@ export function SoundCard() {
   );
 }
 
-const FOCUS_LABELS: Record<FocusRating, string> = { 1: 'Scattered', 2: 'Drifting', 3: 'Okay', 4: 'Focused', 5: 'Locked in' };
-
-/** "How focused were you?" for the finish dialog. Optional; tapping the chosen one again clears it. */
-export function FocusPicker({ value, onChange }: { value?: FocusRating; onChange: (v: FocusRating | undefined) => void }) {
-  return (
-    <div className="field">
-      <span id="focus-label" className="field-label">
-        How focused did it feel? <span className="muted">(optional)</span>
-      </span>
-      <div role="radiogroup" aria-labelledby="focus-label" className="focus-picker">
-        {([1, 2, 3, 4, 5] as FocusRating[]).map((n) => (
-          <button key={n} type="button" role="radio" aria-checked={value === n} aria-label={`${n} of 5, ${FOCUS_LABELS[n]}`} className={`focus-dot${value != null && n <= value ? ' is-on' : ''}${value === n ? ' is-picked' : ''}`} onClick={() => onChange(value === n ? undefined : n)}>
-            <span aria-hidden="true">{n}</span>
-          </button>
-        ))}
-      </div>
-      <p className="hint" aria-live="polite">
-        {value ? FOCUS_LABELS[value] : 'Helps Progress show when you focus best.'}
-      </p>
-    </div>
-  );
-}
+export const FOCUS_LABELS: Record<FocusRating, string> = { 1: 'Scattered', 2: 'Drifting', 3: 'Okay', 4: 'Focused', 5: 'Locked in' };

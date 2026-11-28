@@ -52,6 +52,7 @@ function sanitizeSettings(v: unknown): Settings {
     },
     theme: s.theme === 'light' || s.theme === 'dark' ? s.theme : 'system',
     skin: parseSkin(s.skin),
+    onboarded: s.onboarded === true,
     scene: s.scene === 'car' || s.scene === 'minimal' ? s.scene : 'honeycomb',
     keepAwake: typeof s.keepAwake === 'boolean' ? s.keepAwake : d.keepAwake,
     sound: typeof s.sound === 'boolean' ? s.sound : d.sound,

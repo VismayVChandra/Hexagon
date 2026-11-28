@@ -1,12 +1,11 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { dismissSummary, updateSettings, useStore } from '../store/store';
+import { updateSettings, useStore } from '../store/store';
 import { useInstall, useNow } from '../hooks/hooks';
-import { SummaryCard } from '../components/SummaryCard';
 import { AdminLink, UsageNotice } from '../components/AdminLink';
 import { AccountPrompt, PresencePrompt } from '../components/AccountCard';
 import { SubjectTiles } from '../components/Courses';
-import { ComebackCard, NotifyPrompt } from '../components/AlertSettings';
+import { NotifyPrompt } from '../components/AlertSettings';
 import { Bee, type BeePose } from '../components/Bee';
 import { HiveMini, MINI_CELLS } from '../components/HiveMini';
 import { FriendAvatar } from '../components/bits';
@@ -34,10 +33,10 @@ function HexRing({ value, pose, label }: { value: number; pose: BeePose; label: 
 }
 
 export default function Home() {
-  const { data, summary } = useStore();
+  const { data } = useStore();
   const now = useNow(true, 30_000);
   const install = useInstall();
-  const { settings, sessions, subjects } = data;
+  const { settings, sessions } = data;
   const { live, rows } = useFriendRows(now);
 
   const today = dayKey(now);
@@ -74,8 +73,6 @@ export default function Home() {
         </Link>
       </header>
 
-      {summary && <SummaryCard summary={summary} subject={subjects.find((s) => s.id === summary.subjectId)} onDismiss={dismissSummary} />}
-
       <section className="card today-card" aria-label="Today’s progress">
         <HexRing value={dailyGoal > 0 ? todayStudied / dailyGoal : 0} pose={pose} label={ringLabel} />
         <div className="today-copy">
@@ -99,7 +96,6 @@ export default function Home() {
 
       {/* One gentle prompt at a time: the first one that applies is shown, the rest wait their turn. */}
       <div className="prompt-slot">
-        <ComebackCard />
         {showInstall && (
           <section className="card install-card" aria-labelledby="inst-h">
             <div className="card-head">
