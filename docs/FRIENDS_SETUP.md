@@ -77,8 +77,11 @@ The same `schema.sql` also adds anonymous usage counts and an owner-only dashboa
 3. Reopen the app on that account. An **Admin dashboard** card appears on Home and in Settings. Anyone else who opens
    `#/admin` is refused by the server, not just hidden by the app.
 
-What it counts: devices that opened the app, started or finished a session, built a car or installed the app (a random id
-per device), and, from the database itself, accounts, confirmed emails, friend codes, friendships and who shares status.
+What it counts: devices that opened the app, started or finished a session, built a car, installed the app or finished the
+first-run welcome (a random id per device), and, from the database itself, accounts, confirmed emails, friend codes,
+friendships, who shares status, who shares their hive and cars, how many of those have actually sent them (fewer than
+"share" means some people haven't updated the app yet), car likes and cheers. Re-run `schema.sql` after updating the app
+to see the newer numbers and to allow the welcome count.
 What it never receives: names, subjects, topics, notes, study time or anything typed. People can switch the counts off in
 Settings → Privacy (that also deletes their device's counts), and **Delete my friends data** removes the events tied to
 their account. Events older than about 13 months are removed automatically.

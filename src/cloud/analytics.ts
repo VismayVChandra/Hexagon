@@ -9,9 +9,9 @@ import { cloudConfigured } from './config';
  *  - It can be switched off in Settings, which also asks the server to delete this device's events.
  *  - Nothing is sent unless a Supabase project is configured.
  */
-export type AnalyticsEvent = 'app_open' | 'session_start' | 'session_finish' | 'car_built' | 'app_installed';
+export type AnalyticsEvent = 'app_open' | 'session_start' | 'session_finish' | 'car_built' | 'app_installed' | 'welcome_done';
 
-export const ANALYTICS_EVENTS: readonly AnalyticsEvent[] = ['app_open', 'session_start', 'session_finish', 'car_built', 'app_installed'];
+export const ANALYTICS_EVENTS: readonly AnalyticsEvent[] = ['app_open', 'session_start', 'session_finish', 'car_built', 'app_installed', 'welcome_done'];
 
 /** Where events go. The cloud backend implements this. */
 export interface EventSink {

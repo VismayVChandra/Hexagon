@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addSubject, getState, removeDemoData, saveExam, updateSettings, useStore } from '../store/store';
 import { showToast } from '../hooks/hooks';
+import { analytics } from '../cloud/analytics';
 import { Bee } from '../components/Bee';
 import { HiveMini } from '../components/HiveMini';
 import { SkinPicker } from '../components/SkinPicker';
@@ -67,6 +68,7 @@ export default function Welcome() {
     const subjectId = ids.get(examFor);
     if (subjectId && examValid) saveExam({ subjectId, date: examDate, notes: '', targetHours: 10 });
     updateSettings({ onboarded: true, displayName: first.slice(0, 30), dailyGoalMin: goal });
+    analytics.track('welcome_done');
     // Make the first tap on Home land on the first subject.
     const firstId = [...ids.values()][0];
     if (firstId && getState().data.settings.lastSubjectId == null) updateSettings({ lastSubjectId: firstId });

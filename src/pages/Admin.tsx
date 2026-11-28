@@ -188,6 +188,7 @@ function Visitors({ s }: { s: AdminStats }) {
         <Tile label="Sessions finished" value={o.sessionsFinished} hint="A minute or more" />
         <Tile label="Cars built" value={o.carsBuilt} />
         <Tile label="Installed" value={o.installed} hint="Home-screen installs" />
+        <Tile label="Finished the welcome" value={o.welcomed} hint="New devices since the welcome screens launched" />
       </section>
     </>
   );
@@ -209,6 +210,12 @@ function Accounts({ s }: { s: AdminStats }) {
         <Tile label="Share their status" value={a.sharingStatus} hint="Friends can see when they study" />
         <Tile label="Also share subject" value={a.sharingSubject} />
         <Tile label="Signed-in devices" value={s.overview.signedInDevices} hint="Devices seen with an account" />
+      </section>
+      <section className="tiles" aria-label="Friend profiles">
+        <Tile label="Share hive and cars" value={a.sharingShowcase} hint={`${pct(a.sharingShowcase, a.named)}% of named accounts`} />
+        <Tile label="Profiles sent" value={a.showcasePublished} hint="Their app has shared a hive. Fewer than above means some haven’t updated yet." />
+        <Tile label="Car likes" value={a.carLikes} hint={`on ${n(a.carsLiked)} different ${a.carsLiked === 1 ? 'car' : 'cars'}`} />
+        <Tile label="Cheers" value={a.cheers} hint="Latest per pair of friends" />
       </section>
       <section className="card" aria-labelledby="ac-days">
         <h2 id="ac-days" className="card-title">

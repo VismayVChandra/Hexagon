@@ -71,12 +71,16 @@ create table if not exists public.events (
   id         bigint generated always as identity primary key,
   device_id  uuid not null,
   user_id    uuid references auth.users (id) on delete set null,
-  name       text not null check (name in ('app_open', 'session_start', 'session_finish', 'car_built', 'app_installed')),
+  name       text not null check (name in ('app_open', 'session_start', 'session_finish', 'car_built', 'app_installed', 'welcome_done')),
   created_at timestamptz not null default now()
 );
 create index if not exists events_created_idx on public.events (created_at);
 create index if not exists events_device_idx  on public.events (device_id, created_at);
 create index if not exists events_name_idx    on public.events (name, created_at);
+
+-- Newer versions record one more event (welcome_done): widen the allowed names on a table that already exists.
+alter table public.events drop constraint if exists events_name_check;
+alter table public.events add constraint events_name_check check (name in ('app_open', 'session_start', 'session_finish', 'car_built', 'app_installed', 'welcome_done'));
 
 -- Accounts allowed to open the owner dashboard.
 create table if not exists public.admins (
@@ -348,7 +352,7 @@ returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if p_device is null or p_name is null
-     or p_name not in ('app_open', 'session_start', 'session_finish', 'car_built', 'app_installed') then
+     or p_name not in ('app_open', 'session_start', 'session_finish', 'car_built', 'app_installed', 'welcome_done') then
     return;
   end if;
   if (select count(*) from public.events where device_id = p_device and created_at > now() - interval '1 day') >= 150 then
@@ -418,6 +422,7 @@ begin
       'installed',          (select count(distinct device_id) from public.events where name = 'app_installed'),
       'started_studying',   (select count(distinct device_id) from public.events where name = 'session_start'),
       'finished_session',   (select count(distinct device_id) from public.events where name = 'session_finish'),
+      'welcomed',           (select count(distinct device_id) from public.events where name = 'welcome_done'),
       'sessions_started',   (select count(*) from public.events where name = 'session_start'),
       'sessions_finished',  (select count(*) from public.events where name = 'session_finish'),
       'cars_built',         (select count(*) from public.events where name = 'car_built'),
@@ -437,6 +442,11 @@ begin
       'friendships',    (select count(*) from public.friendships where status = 'accepted'),
       'sharing_status', (select count(*) from public.profiles where share_presence),
       'sharing_subject',(select count(*) from public.profiles where share_subject),
+      'sharing_showcase',(select count(*) from public.profiles where share_garage),
+      'showcase_published',(select count(*) from public.showcase),
+      'car_likes',      (select count(*) from public.car_likes),
+      'cars_liked',     (select count(*) from (select distinct owner_id, car_id from public.car_likes) x),
+      'cheers',         (select count(*) from public.cheers),
       'signups_7d',     (select count(*) from auth.users where created_at > now() - interval '7 days'),
       'recent', (select coalesce(jsonb_agg(jsonb_build_object(
                     'at', u.created_at,

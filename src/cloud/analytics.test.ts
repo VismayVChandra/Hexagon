@@ -157,6 +157,15 @@ describe('dashboard numbers', () => {
     expect(odd.daily[0]).toMatchObject({ day: '2026-11-27', visitors: 5, signups: 0 });
   });
 
+  it('reads the friend-profile and welcome numbers, and defaults them to zero from an older server', () => {
+    const none = parseAdminStats({ overview: {}, accounts: {} });
+    expect(none.overview.welcomed).toBe(0);
+    expect(none.accounts).toMatchObject({ sharingShowcase: 0, showcasePublished: 0, carLikes: 0, carsLiked: 0, cheers: 0 });
+    const s = parseAdminStats({ overview: { welcomed: '7' }, accounts: { sharing_showcase: 5, showcase_published: 3, car_likes: 12, cars_liked: 4, cheers: 2 } });
+    expect(s.overview.welcomed).toBe(7);
+    expect(s.accounts).toMatchObject({ sharingShowcase: 5, showcasePublished: 3, carLikes: 12, carsLiked: 4, cheers: 2 });
+  });
+
   it('works out percentages without dividing by zero or going over 100', () => {
     expect(pct(1, 0)).toBe(0);
     expect(pct(1, 3)).toBe(33);

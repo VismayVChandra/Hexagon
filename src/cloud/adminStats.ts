@@ -36,6 +36,8 @@ export interface AdminStats {
     finishedSession: number;
     sessionsStarted: number;
     sessionsFinished: number;
+    /** Devices that finished the first-run welcome (counted from the version that added it). */
+    welcomed: number;
     carsBuilt: number;
     signedInDevices: number;
     friendDevices: number;
@@ -49,6 +51,15 @@ export interface AdminStats {
     friendships: number;
     sharingStatus: number;
     sharingSubject: number;
+    /** Accounts whose friends may see their hive and cars. */
+    sharingShowcase: number;
+    /** Accounts whose app has actually sent a hive and cars. Fewer than sharing means some haven't updated yet. */
+    showcasePublished: number;
+    carLikes: number;
+    /** Different cars that at least one friend has liked. */
+    carsLiked: number;
+    /** Cheers on record: only the latest one per pair of friends is kept. */
+    cheers: number;
     signups7d: number;
     recent: RecentSignup[];
   };
@@ -82,6 +93,7 @@ export function parseAdminStats(raw: unknown): AdminStats {
       finishedSession: num(o.finished_session),
       sessionsStarted: num(o.sessions_started),
       sessionsFinished: num(o.sessions_finished),
+      welcomed: num(o.welcomed),
       carsBuilt: num(o.cars_built),
       signedInDevices: num(o.signed_in_devices),
       friendDevices: num(o.friend_devices),
@@ -94,6 +106,11 @@ export function parseAdminStats(raw: unknown): AdminStats {
       friendships: num(a.friendships),
       sharingStatus: num(a.sharing_status),
       sharingSubject: num(a.sharing_subject),
+      sharingShowcase: num(a.sharing_showcase),
+      showcasePublished: num(a.showcase_published),
+      carLikes: num(a.car_likes),
+      carsLiked: num(a.cars_liked),
+      cheers: num(a.cheers),
       signups7d: num(a.signups_7d),
       recent: (Array.isArray(a.recent) ? a.recent : []).slice(0, 8).map((x) => {
         const e = obj(x);
