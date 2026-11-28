@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { CLOUD_KEY, CLOUD_URL } from './config';
 import { parseAdminStats } from './adminStats';
-import { CloudError, type AddFriendResult, type CloudBackend, type CloudProfile, type CloudUser, type PresenceUpdate, type RemoteFriend, type UserDataRead, type UserDataWrite } from './types';
+import { CloudError, type AddFriendResult, type CloudBackend, type CloudProfile, type CloudUser, type FriendShowcase, type PresenceUpdate, type ReceivedCheer, type RemoteFriend, type UserDataRead, type UserDataWrite } from './types';
 
 interface ProfileRow {
   id: string;
@@ -9,6 +9,8 @@ interface ProfileRow {
   friend_code: string;
   share_presence: boolean;
   share_subject: boolean;
+  /** Absent until the latest setup SQL has been run; treated as on. */
+  share_garage?: boolean;
 }
 
 const toProfile = (r: ProfileRow): CloudProfile => ({
@@ -17,6 +19,7 @@ const toProfile = (r: ProfileRow): CloudProfile => ({
   friendCode: r.friend_code,
   sharePresence: r.share_presence,
   shareSubject: r.share_subject,
+  shareShowcase: r.share_garage !== false,
 });
 
 /** Turn SDK/Postgres errors into short messages a student can act on. */
@@ -37,6 +40,7 @@ function wrap(e: unknown): CloudError {
   if (/not allowed/i.test(msg) && err?.code === 'P0001') return new CloudError('Only the app’s owner can open the dashboard.', 'validation');
   if (/admin_stats|is_admin|log_event/i.test(msg) && /could not find the function|schema cache/i.test(msg)) return new CloudError('The dashboard needs the latest setup SQL. Run supabase/schema.sql again in Supabase.', 'server');
   if (/sync_get|sync_put|sync_delete|user_data/i.test(msg) && /could not find|schema cache|does not exist/i.test(msg)) return new CloudError('Syncing needs the latest setup SQL. The app’s owner needs to run supabase/schema.sql again in Supabase.', 'server');
+  if (/showcase|car_likes|like_car|send_cheer|get_cheers|share_garage/i.test(msg) && /could not find|schema cache|does not exist/i.test(msg)) return new CloudError('Friend profiles need the latest setup SQL. The app’s owner needs to run supabase/schema.sql again in Supabase.', 'server');
   if (/could not find the function|schema cache/i.test(msg)) return new CloudError('The friends database isn’t set up yet. The app’s owner needs to run the setup SQL in Supabase.', 'server');
   // Messages raised by our own SQL functions are already friendly (e.g. "Name must be 1 to 30 characters").
   if (err?.code === 'P0001') return new CloudError(msg, 'validation');
@@ -121,6 +125,36 @@ export async function createSupabaseBackend(): Promise<CloudBackend> {
     },
     async setSharing(sharePresence, shareSubject) {
       await run(sb.rpc('set_sharing', { p_presence: sharePresence, p_subject: shareSubject }));
+    },
+
+    async setShowcaseSharing(on) {
+      await run(sb.rpc('set_showcase_sharing', { p_on: on }));
+    },
+    async setShowcase(cells, cars) {
+      await run(sb.rpc('set_showcase', { p_cells: Math.max(0, Math.round(cells)), p_cars: cars }));
+    },
+    async getFriendShowcase(friendId) {
+      const r = await run<{ name?: string; shared?: boolean; cells?: number | string; cars?: { id: string; at: number | string; likes: number | string; liked: boolean }[] }>(sb.rpc('get_friend_showcase', { p_friend: friendId }));
+      return {
+        name: r?.name ?? '',
+        shared: r?.shared === true,
+        cells: Number(r?.cells ?? 0),
+        cars: (r?.cars ?? []).map((c) => ({ id: String(c.id), at: Number(c.at), likes: Number(c.likes), liked: c.liked === true })),
+      } satisfies FriendShowcase;
+    },
+    async likeCar(ownerId, carId, like) {
+      return Number(await run<number | string>(sb.rpc('like_car', { p_owner: ownerId, p_car: carId, p_like: like })));
+    },
+    async myCarLikes() {
+      const rows = await run<{ car_id: string; likes: number | string }[]>(sb.rpc('my_car_likes'));
+      return Object.fromEntries((rows ?? []).map((r) => [r.car_id, Number(r.likes)]));
+    },
+    async sendCheer(toId, kind) {
+      return (await run<string>(sb.rpc('send_cheer', { p_to: toId, p_kind: kind }))) === 'sent' ? 'sent' : 'wait';
+    },
+    async getCheers() {
+      const rows = await run<{ from_name: string; kind: ReceivedCheer['kind']; at: string }[]>(sb.rpc('get_cheers'));
+      return (rows ?? []).map((r) => ({ fromName: r.from_name, kind: r.kind, at: r.at }));
     },
 
     async listFriends() {

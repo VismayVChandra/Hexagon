@@ -5035,3 +5035,125 @@ svg.comb-hive {
 :root[data-skin='pop'] .ex-hex {
   background: var(--surface-2);
 }
+
+/* ---------- Friend profiles: hive, cars, likes, cheers ---------- */
+.group-row-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+  min-height: 44px;
+}
+.fp-hive {
+  flex-direction: row;
+  align-items: center;
+  gap: 18px;
+}
+.fp-hive-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.fp-cells {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.fp-cells .muted {
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.fp-cars-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fp-cars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fp-car {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.fp-car-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fp-car-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.fp-like {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  min-width: 64px;
+  padding: 0 14px;
+  justify-content: center;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform var(--dur-1) var(--ease-out), background var(--dur-2) var(--ease-out);
+}
+.fp-like:active {
+  transform: scale(0.94);
+}
+.fp-like.on {
+  background: var(--honey-soft);
+  border-color: var(--honey);
+  color: var(--honey-ink);
+}
+.fp-cheers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fp-cheers .chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.likes-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  background: var(--honey-soft);
+  color: var(--honey-ink);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+:root[data-skin='pop'] .fp-car {
+  border: 2.5px solid var(--edge);
+  box-shadow: 0 3px 0 var(--edge);
+}
+:root[data-skin='pop'] .fp-like {
+  border: 2px solid var(--edge);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fp-like {
+    transition: none;
+  }
+}

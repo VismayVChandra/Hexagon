@@ -171,6 +171,10 @@ export interface Settings {
   sharePresence: boolean;
   /** Privacy: also show the subject. Off by default. */
   shareSubject: boolean;
+  /** Friends may see my honey count and built cars. On by default. */
+  shareShowcase: boolean;
+  /** The one-time "friends can now see your hive and cars" note has been shown. */
+  showcaseNoticeSeen: boolean;
   lastSubjectId?: string;
   /** The timer and scene last used for each subject (by subject id). Stays on this device. */
   lastSetups: Record<string, SetupMemory>;

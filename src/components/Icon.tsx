@@ -29,18 +29,19 @@ const PATHS: Record<string, string> = {
   alert: 'M12 3l10 18H2zM12 10v5M12 18h.01',
   headphones: 'M4 15v-3a8 8 0 0116 0v3M4 14h3.5v6.5H4zM16.5 14H20v6.5h-3.5z',
   list: 'M4 7l2 2 3.5-3.5M4 15l2 2 3.5-3.5M13 8h7M13 16h7',
+  heart: 'M12 20.5s-7.5-4.6-7.5-10.3A4.2 4.2 0 0112 7.6a4.2 4.2 0 017.5 2.6c0 5.7-7.5 10.3-7.5 10.3z',
   car: 'M3 16v-3.5l2-4.5a2 2 0 011.8-1.2h10.4a2 2 0 011.8 1.2l2 4.5V16M2.5 16h19M5 17a2 2 0 104 0 2 2 0 10-4 0M15 17a2 2 0 104 0 2 2 0 10-4 0',
 };
 
 export type IconName = keyof typeof PATHS;
 
-export function Icon({ name, size = 20, className }: { name: IconName; size?: number; className?: string }) {
+export function Icon({ name, size = 20, className, filled = false }: { name: IconName; size?: number; className?: string; filled?: boolean }) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill={name === 'play' ? 'currentColor' : 'none'}
+      fill={filled || name === 'play' ? 'currentColor' : 'none'}
       stroke="currentColor"
       strokeWidth="1.8"
       strokeLinecap="round"

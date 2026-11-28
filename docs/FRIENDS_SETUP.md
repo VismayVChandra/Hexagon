@@ -87,6 +87,22 @@ Limits worth knowing: a "visitor" is a device, not a person; counts start the da
 stop the counts; and because anyone can call the counting function, someone determined could inflate numbers (each device is
 capped at 150 events a day, and repeated opens within 30 minutes count once).
 
+## 5. Friend profiles, likes and cheers (re-run `schema.sql`)
+
+Tapping a friend opens their profile: their honey cell count, bee rank and the cars they have built. Friends can like a car
+(you see "3 friends like this" under your own cars) and send each other a one-tap **cheer** (Nice!, Keep going, On fire).
+To switch it on for real accounts, re-run `supabase/schema.sql` once (step 1); until then profiles show an "needs the latest
+setup SQL" message and everything else keeps working.
+
+- **Who sees it:** only accepted friends. It is on by default, with one switch in Settings → Privacy ("Let friends see my hive
+  and cars"). Switching it off deletes the shared copy straight away.
+- **What is shared:** the honey cell count and the list of built car ids (with dates). Never sessions, subjects, topics or notes.
+  Note the honey count is about total study time (12 cells is an hour), which is why it is a visible setting.
+- **Storage:** one small row per person for the shared copy, about 100 bytes per like, and at most one cheer per pair of friends
+  (a newer cheer replaces the older one; old ones are cleaned up automatically). Cheers are presets, so there is no free text
+  to moderate. There is deliberately no chat.
+- **Try it without Supabase:** in `?mockcloud=1`, sign up, add code `482913` (Ava), then tap her in the list.
+
 ## Keys: what is safe
 
 | Key | Where it lives | Safe in the app? |

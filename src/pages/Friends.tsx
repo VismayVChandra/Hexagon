@@ -227,16 +227,19 @@ export default function Friends() {
                 <ul className="group-list">
                   {items.map((r) => (
                     <li key={r.removeId} className="group-row">
-                      <FriendAvatar friend={r} size={44} />
-                      <div className="group-row-text">
-                        <p className="item-title">{r.name}</p>
-                        {/* Presence only: never a duration. A subject shows only if that friend chose to share it. */}
-                        <p className="muted small fr-state">
-                          {r.state === 'studying' && <span className="live-dot" aria-hidden="true" />}
-                          {g.sub(live)}
-                          {r.state === 'studying' && r.subject ? ` · ${r.subject}` : ''}
-                        </p>
-                      </div>
+                      <Link to={`/friends/${r.id}`} className="group-row-link" aria-label={`${r.name}, ${g.sub(live).toLowerCase()}. Open their profile.`}>
+                        <FriendAvatar friend={r} size={44} />
+                        <div className="group-row-text">
+                          <p className="item-title">{r.name}</p>
+                          {/* Presence only: never a duration. A subject shows only if that friend chose to share it. */}
+                          <p className="muted small fr-state">
+                            {r.state === 'studying' && <span className="live-dot" aria-hidden="true" />}
+                            {g.sub(live)}
+                            {r.state === 'studying' && r.subject ? ` · ${r.subject}` : ''}
+                          </p>
+                        </div>
+                        <Icon name="chevron" size={18} className="strip-go" />
+                      </Link>
                       <button type="button" className="icon-btn" aria-label={`Remove ${r.name}`} onClick={() => setRemoving(r.removeId)}>
                         <Icon name="trash" size={18} />
                       </button>

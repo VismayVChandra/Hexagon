@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { CARS, LETTERS, TIERS, buildMs, buildTimeLabel, carsInTier, carsWithLetter, type Car, type Tier } from '../data/cars';
 import { Icon } from '../components/Icon';
 import { useStore } from '../store/store';
+import { useCloud } from '../cloud/cloud';
+import { LikesBadge } from '../components/LikesBadge';
 import { Bar } from '../components/bits';
 import { CarArt } from '../components/CarArt';
 import { CarPhoto } from '../components/CarPhoto';
@@ -13,6 +15,7 @@ import { CAR_MODELS } from '../data/carModels';
 export default function Garage() {
   const { data } = useStore();
   const owned = new Set(data.garage.map((g) => g.carId));
+  const likes = useCloud().carLikes;
   const [view, setView] = useState<'tier' | 'az'>('tier');
   // Start on the tier you're working on, or the first one with cars still to build.
   const [tier, setTier] = useState<Tier['n']>(() => {
@@ -32,6 +35,7 @@ export default function Garage() {
             {!has && progress > 0 && <Bar value={progress} label={`${car.name} build progress`} />}
             <small className="car-brand">{car.brand}</small>
             <span className="car-option-name">{car.model}</span>
+            {has && (likes[car.id] ?? 0) > 0 && <LikesBadge n={likes[car.id]} />}
             <small className="muted">{has ? 'Built' : `${progress > 0 ? `${Math.floor(progress * 100)}% built` : 'Not started'}${showTime ? ` · ${buildTimeLabel(car)}` : ''}`}</small>
           </li>
         );

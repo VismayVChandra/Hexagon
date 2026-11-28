@@ -537,6 +537,201 @@ begin
   delete from public.user_data where user_id = auth.uid();
 end $$;
 
+-- ---------------------------------------------------------------- friend profiles: hive, cars, likes and cheers
+--
+-- A friend can open your profile and see your honey count, your bee rank and the cars you have built, and can like a car
+-- or send you a one-tap "cheer". Everything is limited to accepted friends:
+--   * Sharing is on by default and has one switch (profiles.share_garage). Switching it off deletes the shared copy.
+--   * The shared copy (public.showcase) holds only the honey cell count and the list of built car ids. Never sessions,
+--     subjects, topics or notes.
+--   * Likes are one row per (car owner, car, friend). Cheers are preset (no free text) and only the latest one from each
+--     friend is kept, so there is nothing to moderate and almost no storage.
+
+alter table public.profiles add column if not exists share_garage boolean not null default true;
+
+create table if not exists public.showcase (
+  user_id    uuid primary key references public.profiles (id) on delete cascade,
+  cells      integer not null default 0 check (cells >= 0),
+  cars       jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.car_likes (
+  owner_id   uuid not null references public.profiles (id) on delete cascade,
+  car_id     text not null check (char_length(car_id) between 1 and 40),
+  liker_id   uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (owner_id, car_id, liker_id)
+);
+create index if not exists car_likes_liker_idx on public.car_likes (liker_id);
+
+create table if not exists public.cheers (
+  from_user  uuid not null references public.profiles (id) on delete cascade,
+  to_user    uuid not null references public.profiles (id) on delete cascade,
+  kind       text not null check (kind in ('nice', 'keep_going', 'fire')),
+  created_at timestamptz not null default now(),
+  primary key (from_user, to_user)
+);
+create index if not exists cheers_to_idx on public.cheers (to_user, created_at);
+
+alter table public.showcase  enable row level security;
+alter table public.car_likes enable row level security;
+alter table public.cheers    enable row level security;
+
+-- Internal: are these two accounts friends? Not callable from the app.
+create or replace function public.are_friends(a uuid, b uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.friendships
+     where status = 'accepted' and ((requester = a and addressee = b) or (requester = b and addressee = a))
+  )
+$$;
+
+-- Turn sharing of my hive and cars on or off. Off removes the shared copy straight away.
+create or replace function public.set_showcase_sharing(p_on boolean)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'Not signed in'; end if;
+  update public.profiles set share_garage = coalesce(p_on, false) where id = uid;
+  if not found then raise exception 'Create your profile first'; end if;
+  if not coalesce(p_on, false) then delete from public.showcase where user_id = uid; end if;
+end $$;
+
+-- Publish my honey count and built cars. Ignored unless sharing is on. Only ids and dates are kept, and the list is capped.
+create or replace function public.set_showcase(p_cells integer, p_cars jsonb)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  uid   uuid := auth.uid();
+  prof  public.profiles;
+  clean jsonb;
+begin
+  if uid is null then raise exception 'Not signed in'; end if;
+  select * into prof from public.profiles where id = uid;
+  if not found or not prof.share_garage then return; end if;
+  if p_cars is null or jsonb_typeof(p_cars) <> 'array' then raise exception 'Bad car list'; end if;
+  if jsonb_array_length(p_cars) > 300 then raise exception 'Too many cars'; end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', left(e->>'id', 40),
+           'at', case when (e->>'at') ~ '^[0-9]{1,15}$' then (e->>'at')::bigint else 0 end)), '[]'::jsonb)
+    into clean
+    from jsonb_array_elements(p_cars) e
+   where jsonb_typeof(e) = 'object' and char_length(coalesce(e->>'id', '')) between 1 and 40;
+
+  insert into public.showcase (user_id, cells, cars, updated_at)
+  values (uid, least(greatest(coalesce(p_cells, 0), 0), 10000000), clean, now())
+  on conflict (user_id) do update
+    set cells = excluded.cells, cars = excluded.cars, updated_at = now();
+end $$;
+
+-- A friend's profile: name, honey count and built cars with like counts. {"shared": false} if they keep it private.
+create or replace function public.get_friend_showcase(p_friend uuid)
+returns jsonb
+language plpgsql security definer stable set search_path = public as $$
+declare
+  uid  uuid := auth.uid();
+  prof public.profiles;
+  sc   public.showcase;
+begin
+  if uid is null then raise exception 'Not signed in'; end if;
+  if not public.are_friends(uid, p_friend) then raise exception 'You are not friends with this person'; end if;
+  select * into prof from public.profiles where id = p_friend;
+  if not found then raise exception 'That friend was not found'; end if;
+  if not prof.share_garage then
+    return jsonb_build_object('name', prof.display_name, 'shared', false, 'cells', 0, 'cars', '[]'::jsonb);
+  end if;
+  select * into sc from public.showcase where user_id = p_friend;
+  if not found then
+    return jsonb_build_object('name', prof.display_name, 'shared', true, 'cells', 0, 'cars', '[]'::jsonb);
+  end if;
+  return jsonb_build_object(
+    'name', prof.display_name,
+    'shared', true,
+    'cells', sc.cells,
+    'cars', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', c->>'id',
+               'at', c->'at',
+               'likes', (select count(*) from public.car_likes l where l.owner_id = p_friend and l.car_id = c->>'id'),
+               'liked', exists (select 1 from public.car_likes l where l.owner_id = p_friend and l.car_id = c->>'id' and l.liker_id = uid))
+             order by (c->>'at')::bigint desc)
+        from jsonb_array_elements(sc.cars) c), '[]'::jsonb));
+end $$;
+
+-- Like (or unlike) a friend's car. Returns the new number of likes.
+create or replace function public.like_car(p_owner uuid, p_car text, p_like boolean)
+returns integer
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'Not signed in'; end if;
+  if p_owner = uid then raise exception 'You can only like your friends'' cars'; end if;
+  if not public.are_friends(uid, p_owner) then raise exception 'You are not friends with this person'; end if;
+  if not exists (
+       select 1 from public.showcase s, jsonb_array_elements(s.cars) c
+        where s.user_id = p_owner and c->>'id' = p_car) then
+    raise exception 'That car is not in their garage';
+  end if;
+  if coalesce(p_like, true) then
+    insert into public.car_likes (owner_id, car_id, liker_id) values (p_owner, p_car, uid) on conflict do nothing;
+  else
+    delete from public.car_likes where owner_id = p_owner and car_id = p_car and liker_id = uid;
+  end if;
+  return (select count(*) from public.car_likes where owner_id = p_owner and car_id = p_car)::integer;
+end $$;
+
+-- How many friends liked each of my cars.
+create or replace function public.my_car_likes()
+returns table (car_id text, likes bigint)
+language plpgsql security definer stable set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Not signed in'; end if;
+  return query
+    select l.car_id, count(*)::bigint from public.car_likes l where l.owner_id = auth.uid() group by l.car_id;
+end $$;
+
+-- Send a friend a preset cheer. Returns 'sent', or 'wait' if I just sent one (a minute apart, 30 an hour at most).
+create or replace function public.send_cheer(p_to uuid, p_kind text)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'Not signed in'; end if;
+  if p_to = uid then raise exception 'Cheer a friend instead'; end if;
+  if p_kind not in ('nice', 'keep_going', 'fire') then raise exception 'Unknown cheer'; end if;
+  if not public.are_friends(uid, p_to) then raise exception 'You are not friends with this person'; end if;
+  if exists (select 1 from public.cheers where from_user = uid and to_user = p_to and created_at > now() - interval '1 minute') then
+    return 'wait';
+  end if;
+  if (select count(*) from public.cheers where from_user = uid and created_at > now() - interval '1 hour') >= 30 then
+    return 'wait';
+  end if;
+  insert into public.cheers (from_user, to_user, kind, created_at) values (uid, p_to, p_kind, now())
+  on conflict (from_user, to_user) do update set kind = excluded.kind, created_at = now();
+  if random() < 0.02 then delete from public.cheers where created_at < now() - interval '3 days'; end if;
+  return 'sent';
+end $$;
+
+-- Cheers sent to me in the last day, newest first.
+create or replace function public.get_cheers()
+returns table (from_name text, kind text, at timestamptz)
+language plpgsql security definer stable set search_path = public as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'Not signed in'; end if;
+  return query
+    select p.display_name, c.kind, c.created_at
+      from public.cheers c
+      join public.profiles p on p.id = c.from_user
+     where c.to_user = uid and c.created_at > now() - interval '1 day' and public.are_friends(uid, c.from_user)
+     order by c.created_at desc
+     limit 20;
+end $$;
+
 -- ---------------------------------------------------------------- permissions
 
 revoke all on public.profiles, public.friendships, public.presence, public.code_attempts, public.events, public.admins, public.user_data from anon, authenticated;
@@ -576,6 +771,22 @@ grant execute on function public.admin_stats(text)                              
 grant execute on function public.sync_get(bigint)                                 to authenticated;
 grant execute on function public.sync_put(jsonb, bigint)                          to authenticated;
 grant execute on function public.sync_delete()                                    to authenticated;
+revoke all on public.showcase, public.car_likes, public.cheers from anon, authenticated;
+revoke execute on function public.are_friends(uuid, uuid)                         from public, anon, authenticated;
+revoke execute on function public.set_showcase_sharing(boolean)                   from public, anon;
+revoke execute on function public.set_showcase(integer, jsonb)                    from public, anon;
+revoke execute on function public.get_friend_showcase(uuid)                       from public, anon;
+revoke execute on function public.like_car(uuid, text, boolean)                   from public, anon;
+revoke execute on function public.my_car_likes()                                  from public, anon;
+revoke execute on function public.send_cheer(uuid, text)                          from public, anon;
+revoke execute on function public.get_cheers()                                    from public, anon;
+grant execute on function public.set_showcase_sharing(boolean)                    to authenticated;
+grant execute on function public.set_showcase(integer, jsonb)                     to authenticated;
+grant execute on function public.get_friend_showcase(uuid)                        to authenticated;
+grant execute on function public.like_car(uuid, text, boolean)                    to authenticated;
+grant execute on function public.my_car_likes()                                   to authenticated;
+grant execute on function public.send_cheer(uuid, text)                           to authenticated;
+grant execute on function public.get_cheers()                                     to authenticated;
 
 -- ---------------------------------------------------------------- make yourself the owner (run once, separately)
 -- Replace the address with the email of the account you sign in with, then run just this statement.

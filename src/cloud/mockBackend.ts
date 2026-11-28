@@ -13,7 +13,7 @@
  */
 import { parseAdminStats } from './adminStats';
 import { mulberry32 } from '../lib/id';
-import { CloudError, type AddFriendResult, type CloudBackend, type CloudProfile, type CloudUser, type RemoteFriend } from './types';
+import { CloudError, type AddFriendResult, type CloudBackend, type CloudProfile, type CloudUser, type FriendShowcase, type RemoteFriend } from './types';
 
 const KEY = 'hexagon.mockcloud2';
 
@@ -26,6 +26,8 @@ interface Person {
   subject: string | null;
   sessionMs: number;
   roomId: string | null;
+  cells: number;
+  cars: { id: string; at: number }[];
 }
 interface Account {
   id: string;
@@ -37,6 +39,10 @@ interface Account {
   wrongGuesses: number;
   /** The synced study data (what Supabase keeps in public.user_data). */
   data?: { rev: number; doc: unknown };
+  /** Cars I've liked, as "ownerId:carId". */
+  liked?: string[];
+  /** What I published about my own hive and cars. */
+  showcase?: { cells: number; cars: { id: string; at: number }[] };
 }
 interface Db {
   accounts: Record<string, Account>;
@@ -44,9 +50,9 @@ interface Db {
 }
 
 const PEOPLE: Person[] = [
-  { friendshipId: 'f-ava', id: 'u-ava', name: 'Ava', code: '482913', state: 'studying', subject: 'Organic chemistry', sessionMs: 41 * 60_000, roomId: 'quiet-library' },
-  { friendshipId: 'f-ben', id: 'u-ben', name: 'Ben', code: '715204', state: 'online', subject: null, sessionMs: 0, roomId: null },
-  { friendshipId: 'f-chloe', id: 'u-chloe', name: 'Chloe', code: '690138', state: 'finished', subject: 'Statistics', sessionMs: 55 * 60_000, roomId: null },
+  { friendshipId: 'f-ava', id: 'u-ava', name: 'Ava', code: '482913', state: 'studying', subject: 'Organic chemistry', sessionMs: 41 * 60_000, roomId: 'quiet-library', cells: 412, cars: [{ id: 'bmw-x1', at: Date.now() - 2 * 86_400_000 }, { id: 'mahindra-thar', at: Date.now() - 6 * 86_400_000 }, { id: 'toyota-fortuner', at: Date.now() - 9 * 86_400_000 }, { id: 'maruti-swift', at: Date.now() - 14 * 86_400_000 }, { id: 'tata-nano', at: Date.now() - 20 * 86_400_000 }] },
+  { friendshipId: 'f-ben', id: 'u-ben', name: 'Ben', code: '715204', state: 'online', subject: null, sessionMs: 0, roomId: null, cells: 96, cars: [{ id: 'tata-nano', at: Date.now() - 3 * 86_400_000 }] },
+  { friendshipId: 'f-chloe', id: 'u-chloe', name: 'Chloe', code: '690138', state: 'finished', subject: 'Statistics', sessionMs: 55 * 60_000, roomId: null, cells: 1180, cars: [{ id: 'porsche-911', at: Date.now() - 86_400_000 }, { id: 'tesla-model-3', at: Date.now() - 5 * 86_400_000 }] },
 ];
 
 function load(): Db {
@@ -208,7 +214,7 @@ export function createMockBackend(): CloudBackend {
     async saveProfile(displayName) {
       const a = me();
       await wait();
-      a.profile = a.profile ? { ...a.profile, displayName } : { id: a.id, displayName, friendCode: String(207364 + Object.keys(db.accounts).indexOf(a.email) * 1111), sharePresence: false, shareSubject: false };
+      a.profile = a.profile ? { ...a.profile, displayName } : { id: a.id, displayName, friendCode: String(207364 + Object.keys(db.accounts).indexOf(a.email) * 1111), sharePresence: false, shareSubject: false, shareShowcase: true };
       save();
       return a.profile;
     },
@@ -224,6 +230,58 @@ export function createMockBackend(): CloudBackend {
       const a = me();
       if (a.profile) a.profile = { ...a.profile, sharePresence, shareSubject: sharePresence && shareSubject };
       save();
+    },
+
+    async setShowcaseSharing(on) {
+      const a = me();
+      if (a.profile) a.profile = { ...a.profile, shareShowcase: on };
+      if (!on) delete a.showcase;
+      save();
+    },
+    async setShowcase(cells, cars) {
+      const a = me();
+      if (a.profile?.shareShowcase !== false) a.showcase = { cells, cars };
+      save();
+    },
+    async getFriendShowcase(friendId): Promise<FriendShowcase> {
+      const a = me();
+      await wait(150);
+      const p = PEOPLE.find((x) => x.id === friendId);
+      if (!p || !a.friendIds.includes(p.id)) throw new CloudError('You are not friends with this person', 'validation');
+      const liked = new Set(a.liked ?? []);
+      return {
+        name: p.name,
+        shared: true,
+        cells: p.cells,
+        cars: p.cars.map((c, i) => ({ ...c, likes: ((i * 3 + p.cells) % 5) + (liked.has(`${p.id}:${c.id}`) ? 1 : 0), liked: liked.has(`${p.id}:${c.id}`) })),
+      };
+    },
+    async likeCar(ownerId, carId, like) {
+      const a = me();
+      await wait(120);
+      const p = PEOPLE.find((x) => x.id === ownerId);
+      const key = `${ownerId}:${carId}`;
+      const set = new Set(a.liked ?? []);
+      if (like) set.add(key);
+      else set.delete(key);
+      a.liked = [...set];
+      save();
+      const i = p ? p.cars.findIndex((c) => c.id === carId) : 0;
+      return (((Math.max(i, 0) * 3 + (p?.cells ?? 0)) % 5) as number) + (like ? 1 : 0);
+    },
+    async myCarLikes() {
+      const a = me();
+      // Made-up likes from the pretend friends, so the numbers can be seen in development.
+      return Object.fromEntries((a.showcase?.cars ?? []).map((c, i) => [c.id, (i + 1) % 4]).filter(([, n]) => (n as number) > 0));
+    },
+    async sendCheer() {
+      me();
+      await wait(150);
+      return 'sent';
+    },
+    async getCheers() {
+      me();
+      return [];
     },
 
     async listFriends() {

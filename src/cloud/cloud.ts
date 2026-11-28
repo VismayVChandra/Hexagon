@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { USE_MOCK, cloudConfigured } from './config';
-import { CloudError, type CloudBackend, type CloudProfile, type CloudUser, type RemoteFriend } from './types';
+import { CloudError, type CheerKind, type CloudBackend, type CloudProfile, type CloudUser, type FriendShowcase, type RemoteFriend } from './types';
+import { cheerOf, showcaseFromData, showcaseKey } from '../lib/showcase';
 import { HEARTBEAT_MS, desiredPresence, normalizeFriendCode, type PresenceInputs } from './presence';
 import { isValidEmail, passwordProblem } from './validate';
 import { takeAuthRedirect } from './authRedirect';
@@ -23,6 +24,8 @@ export interface CloudState {
   email: string;
   profile: CloudProfile | null;
   friends: RemoteFriend[];
+  /** How many friends liked each of my built cars, by car id. */
+  carLikes: Record<string, number>;
   /** A message for the current step. */
   error: string | null;
   /** A positive message for the current step (e.g. "Email confirmed"). */
@@ -46,6 +49,7 @@ let state: CloudState = {
   email: '',
   profile: null,
   friends: [],
+  carLikes: {},
   error: null,
   notice: null,
   busy: false,
@@ -194,7 +198,7 @@ async function enterAccount(b: CloudBackend, user: CloudUser) {
   const profile = await b.getProfile();
   if (!profile) return set({ phase: 'needs-name', error: null });
   // A device that has never been signed in to this account takes the privacy choices already made on it (they are kept on the server).
-  if (isNewHere(profile.id)) updateSettings({ sharePresence: profile.sharePresence, shareSubject: profile.shareSubject });
+  if (isNewHere(profile.id)) updateSettings({ sharePresence: profile.sharePresence, shareSubject: profile.shareSubject, shareShowcase: profile.shareShowcase });
   set({ phase: 'signed-in', profile, error: null });
   startSync();
 }
@@ -319,14 +323,14 @@ export async function signOut() {
     await b.clearPresence().catch(() => undefined);
     await b.signOut();
     clearCache();
-    set({ phase: 'signed-out', profile: null, friends: [], email: '', notice: null, isAdmin: false });
+    set({ phase: 'signed-out', profile: null, friends: [], carLikes: {}, email: '', notice: null, isAdmin: false });
   });
 }
 
 async function handleAccountLost(message?: string) {
   stopSync();
   clearCache();
-  set({ phase: 'signed-out', profile: null, friends: [], syncError: false, error: message ?? null, notice: null, isAdmin: false });
+  set({ phase: 'signed-out', profile: null, friends: [], carLikes: {}, syncError: false, error: message ?? null, notice: null, isAdmin: false });
 }
 
 /** Remove my name, code, friendships and status from the server, and sign out. (The email account itself can be reused.) */
@@ -338,7 +342,7 @@ export async function deleteCloudData() {
     await b.deleteMyData();
     await b.signOut();
     clearCache();
-    set({ phase: 'signed-out', profile: null, friends: [], email: '', notice: null, isAdmin: false });
+    set({ phase: 'signed-out', profile: null, friends: [], carLikes: {}, email: '', notice: null, isAdmin: false });
   });
 }
 
@@ -460,9 +464,76 @@ export async function refresh() {
     }
     set({ friends, profile: profile ?? state.profile, syncError: false, lastSyncAt: Date.now() });
     writeCache();
+    void refreshExtras(b);
   } catch (e) {
     if (e instanceof CloudError && e.kind === 'auth') void handleAccountLost(e.message);
     else set({ syncError: true });
+  }
+}
+
+const CHEER_KEY = 'hexagon.cheers.last';
+
+/** Likes on my cars and cheers sent to me. Best effort: an older setup SQL simply has neither yet. */
+async function refreshExtras(b: CloudBackend) {
+  try {
+    set({ carLikes: await b.myCarLikes() });
+  } catch {
+    /* no likes yet */
+  }
+  try {
+    const cheers = await b.getCheers();
+    let last = NaN;
+    try {
+      last = Number(localStorage.getItem(CHEER_KEY) ?? NaN);
+    } catch {
+      /* optional */
+    }
+    const newest = cheers.reduce((m, c) => Math.max(m, Date.parse(c.at) || 0), 0);
+    // The first time on a device, just note where things stand instead of announcing yesterday's cheers.
+    if (Number.isFinite(last)) {
+      for (const c of cheers) {
+        if (Date.parse(c.at) > last) {
+          const ch = cheerOf(c.kind);
+          showToast(`${c.fromName} says ${ch?.label ?? 'hi'} ${ch?.emoji ?? ''}`.trim(), 'info');
+        }
+      }
+    }
+    try {
+      localStorage.setItem(CHEER_KEY, String(Math.max(newest, Number.isFinite(last) ? last : 0, Number.isFinite(last) ? 0 : Date.now())));
+    } catch {
+      /* optional */
+    }
+  } catch {
+    /* no cheers yet */
+  }
+}
+
+// ---------- friend profiles: hive, cars, likes, cheers ----------
+
+export async function loadFriendShowcase(friendId: string): Promise<FriendShowcase> {
+  const b = await loadBackend();
+  return b.getFriendShowcase(friendId);
+}
+
+/** Like or unlike a friend's car. */
+export async function setCarLike(ownerId: string, carId: string, like: boolean): Promise<{ ok: true; likes: number } | { ok: false; error: string }> {
+  try {
+    const b = await loadBackend();
+    return { ok: true, likes: await b.likeCar(ownerId, carId, like) };
+  } catch (e) {
+    if (e instanceof CloudError && e.kind === 'auth') void handleAccountLost(e.message);
+    return { ok: false, error: messageOf(e) };
+  }
+}
+
+/** Send a friend one of the preset cheers. */
+export async function cheerFriend(toId: string, kind: CheerKind): Promise<ActionResult> {
+  try {
+    const b = await loadBackend();
+    const r = await b.sendCheer(toId, kind);
+    return r === 'sent' ? { ok: true } : { ok: false, error: 'You just sent one. Give it a minute.' };
+  } catch (e) {
+    return { ok: false, error: messageOf(e) };
   }
 }
 
@@ -531,6 +602,36 @@ async function pushSharing() {
   await pushPresence(true);
 }
 
+let lastShowcaseKey = '';
+let lastShowcaseSharing: boolean | null = null;
+
+/** Keep what friends can see of me (honey count and built cars) up to date, or removed if I switched sharing off. */
+async function pushShowcase() {
+  const b = backendRef;
+  if (!b || state.phase !== 'signed-in') return;
+  const m = getMain().data;
+  const on = m.settings.shareShowcase;
+  const sh = showcaseFromData(m);
+  const key = showcaseKey(on, sh);
+  if (key === lastShowcaseKey) return;
+  lastShowcaseKey = key;
+  try {
+    if (lastShowcaseSharing !== on) {
+      await b.setShowcaseSharing(on);
+      lastShowcaseSharing = on;
+    }
+    if (on) {
+      await b.setShowcase(sh.cells, sh.cars);
+      if (!m.settings.showcaseNoticeSeen) {
+        updateSettings({ showcaseNoticeSeen: true });
+        showToast('Friends can now see your hive and cars. Turn that off in Settings, under Privacy.', 'info', { ms: 7000 });
+      }
+    }
+  } catch {
+    lastShowcaseKey = ''; // try again on the next change or heartbeat
+  }
+}
+
 function onLocalChange() {
   const m = getMain().data;
   const activeId = m.active?.id ?? null;
@@ -540,6 +641,7 @@ function onLocalChange() {
   }
   prevActiveId = activeId;
   void pushSharing().then(() => pushPresence(false));
+  void pushShowcase();
 }
 
 function startSync() {
@@ -547,6 +649,7 @@ function startSync() {
   prevActiveId = getMain().data.active?.id ?? null;
   void refresh();
   void pushSharing().then(() => pushPresence(true));
+  void pushShowcase();
   pollTimer = window.setInterval(() => {
     if (document.visibilityState === 'visible') void refresh();
   }, POLL_MS);
@@ -574,6 +677,8 @@ function stopSync() {
   visListener = undefined;
   lastSharingKey = '';
   lastPresenceKey = '';
+  lastShowcaseKey = '';
+  lastShowcaseSharing = null;
   presenceSet = false;
   finished = null;
 }

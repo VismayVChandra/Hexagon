@@ -5,6 +5,8 @@ import { CARS, buildMs, carById, type Car } from '../data/cars';
 import { Bar } from './bits';
 import { CarArt } from './CarArt';
 import { CarPhoto } from './CarPhoto';
+import { LikesBadge } from './LikesBadge';
+import { useCloud } from '../cloud/cloud';
 
 /** How many built cars the card shows before "See more". */
 const PREVIEW = 3;
@@ -12,6 +14,7 @@ const PREVIEW = 3;
 /** A short look at your garage: your newest built cars (more on request) and the one you're working on. */
 export function GarageCard({ garage, builds }: { garage: GarageItem[]; builds: Record<string, number> }) {
   const owned = new Set(garage.map((g) => g.carId));
+  const likes = useCloud().carLikes;
   const [expanded, setExpanded] = useState(false);
   const built = [...garage]
     .sort((a, b) => b.at - a.at)
@@ -44,6 +47,7 @@ export function GarageCard({ garage, builds }: { garage: GarageItem[]; builds: R
                 {!has && progress > 0 && <Bar value={progress} label={`${car.name} build progress`} />}
                 <small className="car-brand">{car.brand}</small>
                 <span className="car-option-name">{car.model}</span>
+                {has && (likes[car.id] ?? 0) > 0 && <LikesBadge n={likes[car.id]} />}
                 <small className="muted">{has ? 'Built' : `${Math.floor(progress * 100)}% built`}</small>
               </li>
             );

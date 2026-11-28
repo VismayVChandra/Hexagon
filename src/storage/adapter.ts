@@ -66,6 +66,8 @@ function sanitizeSettings(v: unknown): Settings {
     haptics: typeof s.haptics === 'boolean' ? s.haptics : d.haptics,
     sharePresence: typeof s.sharePresence === 'boolean' ? s.sharePresence : d.sharePresence,
     shareSubject: typeof s.shareSubject === 'boolean' ? s.shareSubject : false,
+    shareShowcase: typeof s.shareShowcase === 'boolean' ? s.shareShowcase : d.shareShowcase,
+    showcaseNoticeSeen: s.showcaseNoticeSeen === true,
     lastSubjectId: isStr(s.lastSubjectId) ? s.lastSubjectId : undefined,
     lastSetups: parseSetups(s.lastSetups),
     installHintDismissed: s.installHintDismissed === true,

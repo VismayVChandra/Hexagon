@@ -22,6 +22,7 @@ import Exams from './pages/Exams';
 import SettingsPage from './pages/Settings';
 import Garage from './pages/Garage';
 import AdminPage from './pages/Admin';
+import FriendProfile from './pages/FriendProfile';
 import Welcome from './pages/Welcome';
 import Reward from './pages/Reward';
 import WelcomeBack from './pages/WelcomeBack';
@@ -348,6 +349,7 @@ function Gate() {
         <Route path="session" element={<Session />} />
         <Route path="progress" element={<Progress />} />
         <Route path="friends" element={<Friends />} />
+        <Route path="friends/:id" element={<FriendProfile />} />
         <Route path="exams" element={<Exams />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="garage" element={<Garage />} />

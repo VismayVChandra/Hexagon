@@ -15,6 +15,36 @@ export interface CloudProfile {
   friendCode: string;
   sharePresence: boolean;
   shareSubject: boolean;
+  /** Friends may see my honey count and built cars. On unless switched off. */
+  shareShowcase: boolean;
+}
+
+/** One built car on a friend's profile, with how many friends liked it. */
+export interface ShowcaseCar {
+  id: string;
+  /** When it was finished (ms since 1970). */
+  at: number;
+  likes: number;
+  /** I already liked it. */
+  liked: boolean;
+}
+
+/** A friend's profile: their honey count and built cars, or `shared: false` if they keep it private. */
+export interface FriendShowcase {
+  name: string;
+  shared: boolean;
+  cells: number;
+  cars: ShowcaseCar[];
+}
+
+/** The quick, preset ways to cheer a friend on. No free text. */
+export type CheerKind = 'nice' | 'keep_going' | 'fire';
+
+export interface ReceivedCheer {
+  fromName: string;
+  kind: CheerKind;
+  /** ISO timestamp. */
+  at: string;
 }
 
 /** A friend, with presence only if they chose to share it. */
@@ -78,6 +108,20 @@ export interface CloudBackend {
   /** Replace my friend code. Existing friends stay. */
   regenerateCode(): Promise<string>;
   setSharing(sharePresence: boolean, shareSubject: boolean): Promise<void>;
+  /** Turn on or off friends seeing my honey count and cars. Off deletes the shared copy. */
+  setShowcaseSharing(on: boolean): Promise<void>;
+  /** Publish my honey count and built cars (ignored unless sharing is on). */
+  setShowcase(cells: number, cars: { id: string; at: number }[]): Promise<void>;
+  /** A friend's honey count and cars, with like counts. */
+  getFriendShowcase(friendId: string): Promise<FriendShowcase>;
+  /** Like or unlike a friend's car. Resolves to the new like count. */
+  likeCar(ownerId: string, carId: string, like: boolean): Promise<number>;
+  /** How many friends liked each of my cars, by car id. */
+  myCarLikes(): Promise<Record<string, number>>;
+  /** Send a friend a preset cheer. 'wait' means one was just sent. */
+  sendCheer(toId: string, kind: CheerKind): Promise<'sent' | 'wait'>;
+  /** Cheers sent to me in the last day. */
+  getCheers(): Promise<ReceivedCheer[]>;
 
   listFriends(): Promise<RemoteFriend[]>;
   /** Type in a friend's code. Friendship is immediate and mutual. */
